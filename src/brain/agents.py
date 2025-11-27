@@ -1,12 +1,16 @@
 import os
-from crewai import Agent, Task, Crew, Process
-from langchain_google_genai import ChatGoogleGenerativeAI
+from crewai import Agent, LLM
 from src.brain.tools import KoreTools
+from dotenv import load_dotenv
 
-# --- SETUP GEMINI ---
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-flash", # Flash is faster/cheaper, Pro is smarter
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
+load_dotenv()
+
+# --- SETUP GEMINI (The Modern Way) ---
+# We use the LLM class which wraps LiteLLM handles Gemini natively.
+# Syntax: "provider/model-name"
+llm = LLM(
+    model="gemini/gemini-2.0-flash-lite",
+    api_key=os.getenv("GOOGLE_API_KEY"),
     temperature=0.3
 )
 

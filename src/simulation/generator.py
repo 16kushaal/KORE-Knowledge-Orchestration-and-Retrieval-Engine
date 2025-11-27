@@ -21,8 +21,6 @@ producer = KafkaProducer(
 print(f"🌊 Smart Enterprise Simulation Stream Started on {KAFKA_BROKER}...")
 
 # --- REALISTIC DATASETS ---
-
-# 1. The Team (Nodes in Graph)
 USERS = [
     {"id": "U101", "name": "Alice Chen", "role": "Backend Lead", "skills": ["Python", "Postgres", "Kafka"]},
     {"id": "U102", "name": "Bob Smith", "role": "DevOps", "skills": ["Docker", "Kubernetes", "CI/CD"]},
@@ -31,7 +29,6 @@ USERS = [
     {"id": "U105", "name": "Eve Polastri", "role": "Product Owner", "skills": ["Jira", "Roadmap"]}
 ]
 
-# 2. The Components (Context)
 MODULES = ["AuthService", "PaymentGateway", "UserDashboard", "NotificationEngine", "SearchIndexer"]
 FILES = {
     "AuthService": ["src/auth/login.py", "src/auth/oauth.py", "tests/test_auth.py"],
@@ -40,7 +37,6 @@ FILES = {
     "NotificationEngine": ["src/notifications/email.go", "src/notifications/slack_webhook.go"]
 }
 
-# 3. The Vocabulary (Legos)
 ACTIONS = ["Fixed", "Refactored", "Optimized", "Reverted", "Added", "Deprecated"]
 ISSUES = ["memory leak", "race condition", "NPE", "timeout issue", "security vulnerability", "CSS misalignment"]
 REASONS = ["customer complaint", "failed audit", "performance drop", "Q3 roadmap", "hotfix request"]
@@ -48,13 +44,11 @@ REASONS = ["customer complaint", "failed audit", "performance drop", "Q3 roadmap
 # --- GENERATORS ---
 
 def get_smart_commit_message(module):
-    """Generates a commit message that sounds real"""
     action = random.choice(ACTIONS)
     issue = random.choice(ISSUES)
     return f"{action} {issue} in {module} handling logic"
 
 def get_smart_chat_message(module, context="general"):
-    """Generates a Slack message relevant to a module"""
     if context == "incident":
         return random.choice([
             f"Guys, {module} is throwing 500 errors again.",
@@ -72,11 +66,10 @@ def get_smart_chat_message(module, context="general"):
 
 def generate_event_stream():
     while True:
-        # Pick a random "Story" for this iteration
         module = random.choice(MODULES)
         user = random.choice(USERS)
         
-        # 1. GITHUB COMMIT (The Code)
+        # 1. GITHUB COMMIT
         if random.random() < 0.4:
             repo_name = "kore-backend" if "src" in FILES[module][0] else "kore-frontend"
             commit_msg = get_smart_commit_message(module)
@@ -96,23 +89,27 @@ def generate_event_stream():
             producer.send('raw-git-commits', event)
             print(f"💻 [Git] {user['name']} -> {commit_msg}")
 
-        # 2. SLACK CHAT (The Discussion)
+        # 2. SLACK CHAT (FIXED)
         if random.random() < 0.5:
             is_incident = random.random() < 0.2
-            channel = "incidents" if is_incident else "dev-general"
+            # FIX: Define both Name and ID
+            channel_name = "incidents" if is_incident else "dev-general"
+            channel_id = "C-INC" if is_incident else "C-GEN"
+            
             text = get_smart_chat_message(module, "incident" if is_incident else "general")
             
             event = {
                 "user": user["id"],
                 "username": user["name"],
                 "text": text,
-                "channel_name": channel,
+                "channel": channel_id,        # <--- THIS WAS MISSING
+                "channel_name": channel_name,
                 "ts": str(time.time())
             }
             producer.send('raw-slack-chats', event)
             print(f"💬 [Slack] {user['name']}: {text}")
 
-        # 3. JIRA TICKET (The Task)
+        # 3. JIRA TICKET
         if random.random() < 0.2:
             event = {
                 "webhookEvent": "jira:issue_created",
@@ -130,8 +127,7 @@ def generate_event_stream():
             producer.send('raw-jira-tickets', event)
             print(f"🎫 [Jira] New Ticket: {event['issue']['fields']['summary']}")
 
-        # Sleep randomly (3-6 seconds) to prevent API rate limits if you use them later
-        time.sleep(random.uniform(3, 6))
+        time.sleep(random.uniform(5, 8)) # Slow for API limits
 
 if __name__ == "__main__":
     try:

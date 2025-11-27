@@ -6,12 +6,17 @@ psycopg2-binary
 
 # AI & Agents
 crewai
+crewai[google-genai]
+
 # The Google connector for Gemini LLM & Embeddings
 langchain-google-genai
 # The Groq connector (optional but good for speed)
 langchain-groq
 langchain-community
 langchain-cohere
+litellm
+langchain-chroma
+langchain-neo4j
 # Simulation & Utilities
 faker
 python-dotenv
