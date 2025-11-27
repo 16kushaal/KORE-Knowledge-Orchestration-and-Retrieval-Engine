@@ -9,7 +9,7 @@ load_dotenv()
 
 # --- CONFIG ---
 KAFKA_BROKER = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-TEST_QUERY = "Who is working on the PaymentGateway and what did they fix recently?"
+TEST_QUERY = "Who fixed the memory leak in the payment system and what had happened ?"
 
 def run_test():
     print(f"🧪 Starting Backend Test on {KAFKA_BROKER}...")

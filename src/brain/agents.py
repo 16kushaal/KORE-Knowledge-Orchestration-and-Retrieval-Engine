@@ -5,13 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# --- SETUP GEMINI (The Modern Way) ---
-# We use the LLM class which wraps LiteLLM handles Gemini natively.
-# Syntax: "provider/model-name"
 llm = LLM(
     model="gemini/gemini-2.0-flash-lite",
     api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0.3
+    temperature=0.0
 )
 
 class KoreAgents:
@@ -20,7 +17,7 @@ class KoreAgents:
         return Agent(
             role='KORE Triage Officer',
             goal='Analyze questions and delegate to the right specialist',
-            backstory='You are the front-desk of the knowledge base. You determine if a question is about "Structure/People" (Graph) or "Content/Meaning" (Vector).',
+            backstory='You are the front-desk. You decide if a question needs an Expert Finder (Who?) or General Search (What?).',
             llm=llm,
             verbose=True,
             allow_delegation=True
@@ -29,9 +26,10 @@ class KoreAgents:
     def researcher_agent(self):
         return Agent(
             role='Senior Technical Researcher',
-            goal='Find precise technical facts from the knowledge base',
-            backstory='You are a veteran engineer. You dig through logs, tickets, and commits to find the truth.',
-            tools=[KoreTools.search_documents, KoreTools.search_relationships],
+            goal='Find concrete evidence and trace it to specific people.',
+            backstory='You are a detective. You do not guess. You use the Expert Finder to link problems to people.',
+            # Give both tools
+            tools=[KoreTools.find_expert_for_issue, KoreTools.search_documents],
             llm=llm,
             verbose=True
         )
@@ -39,8 +37,8 @@ class KoreAgents:
     def writer_agent(self):
         return Agent(
             role='Technical Communicator',
-            goal='Synthesize technical data into a clear answer',
-            backstory='You turn raw database results into helpful summaries for developers.',
+            goal='Summarize findings into a clear report.',
+            backstory='You write for the CTO. Be concise. State the problem, the person responsible, and the fix.',
             llm=llm,
             verbose=True
         )

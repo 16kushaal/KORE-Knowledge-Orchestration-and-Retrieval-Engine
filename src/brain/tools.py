@@ -1,77 +1,78 @@
 import os
 import warnings
-# 1. Use CrewAI's native tool decorator to satisfy Pydantic validation
 from crewai.tools import tool
-# 2. Use updated libraries to fix deprecation warnings
 from langchain_chroma import Chroma
 from langchain_neo4j import Neo4jGraph
 from langchain_cohere import CohereEmbeddings
-from dotenv import load_dotenv
 import chromadb
+from dotenv import load_dotenv
 
-# Suppress remaining noise
 warnings.filterwarnings("ignore")
-
 load_dotenv()
 
-# --- CONFIGURATION ---
-
-# Setup Cohere (Must match ingestion!)
+# --- CONNECT ---
 embedding_function = CohereEmbeddings(
     model="embed-english-v3.0",
     cohere_api_key=os.getenv("COHERE_API_KEY")
 )
-
-# Setup Chroma Client
-# Note: We use the http client to connect to Docker
 client = chromadb.HttpClient(host=os.getenv('CHROMA_HOST', 'localhost'), port=8000)
-store = Chroma(
-    client=client,
-    collection_name="kore_knowledge",
-    embedding_function=embedding_function
-)
+store = Chroma(client=client, collection_name="kore_knowledge", embedding_function=embedding_function)
 
-# Setup Neo4j
 graph = Neo4jGraph(
     url=os.getenv('NEO4J_URI'),
     username=os.getenv('NEO4J_USER'),
     password=os.getenv('NEO4J_PASSWORD')
 )
 
-# --- THE TOOLS ---
-
 class KoreTools:
     
-    @tool("Vector Search Tool")
+    @tool("Expert Finder")
+    def find_expert_for_issue(issue_description: str):
+        """
+        Use this tool to find WHO worked on a specific problem or feature.
+        Input: A description of the issue (e.g., "memory leak in payment", "checkout bug").
+        Output: A list of people, what they fixed, and the related tickets/commits.
+        """
+        # 1. Vector Search (Find the "What")
+        docs = store.similarity_search(issue_description, k=3)
+        if not docs:
+            return "No relevant documents found."
+
+        results = []
+        for doc in docs:
+            source = doc.metadata.get("source")
+            
+            # 2. Graph Pivot (Find the "Who")
+            if source == "jira":
+                key = doc.metadata.get("key")
+                # Find who reported OR fixed the ticket
+                cypher = f"""
+                MATCH (p:User)-[r]->(node)
+                WHERE node.key = '{key}' OR (node)-[:FIXES]->(:Ticket {{key: '{key}'}})
+                RETURN p.name as Person, type(r) as Action, '{key}' as Context
+                """
+                try:
+                    data = graph.query(cypher)
+                    if data: results.extend(data)
+                except: pass
+
+            elif source == "github":
+                # Direct link from Vector metadata
+                results.append({
+                    "Person": doc.metadata.get("author"), 
+                    "Action": "WROTE_COMMIT", 
+                    "Context": doc.page_content
+                })
+
+        if not results:
+            return "Found documents describing the issue, but could not link them to specific users in the graph."
+            
+        return str(results)
+
+    @tool("General Search")
     def search_documents(query: str):
         """
-        Useful for finding specific information in text documents, chat logs, 
-        Jira tickets, and commit messages. Use this for "What", "How", and "Why" questions.
+        Use this tool for general questions about "What happened" or "How to".
         """
-        try:
-            results = store.similarity_search(query, k=4)
-            return "\n\n".join([doc.page_content for doc in results])
-        except Exception as e:
-            return f"Vector Search Error: {e}"
-
-    @tool("Graph Knowledge Tool")
-    def search_relationships(query: str):
-        """
-        Useful for finding relationships between people, code, and tickets.
-        Use this for "Who", "Where", and structural questions.
-        """
-        # Simple lookup query
-        cypher_query = f"""
-        MATCH (u:User)-[r]->(target)
-        WHERE target.name CONTAINS '{query}' OR target.key CONTAINS '{query}'
-        RETURN u.name as Expert, type(r) as Action, target.name as Context
-        LIMIT 5
-        """
-        try:
-            result = graph.query(cypher_query)
-            # If empty, try a broader search or return a helpful message
-            if not result:
-                return "No direct relationships found in the Knowledge Graph."
-            return str(result)
-        except Exception as e:
-            return f"Graph Search Error: {e}"
+        results = store.similarity_search(query, k=4)
+        return "\n\n".join([f"[{doc.metadata.get('source')}] {doc.page_content}" for doc in results])
