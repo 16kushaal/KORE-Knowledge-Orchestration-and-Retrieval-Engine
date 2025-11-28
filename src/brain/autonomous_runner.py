@@ -35,29 +35,6 @@ class AutonomousBrain:
             group_id='kore-autonomous-v2'
         )
 
-    def trigger_policy_scan(self, pr_data):
-        """
-        Triggered by: raw-git-prs
-        Agent: Policy Sentinel
-        Goal: Check for secrets/compliance.
-        """
-        pr_body = pr_data.get('pull_request', {}).get('body', '')
-        pr_title = pr_data.get('pull_request', {}).get('title', 'Unknown')
-        
-        logger.info(f"🛡️ [Sentinel] Scanning PR: {pr_title}")
-        
-        sentinel = self.agents.policy_sentinel()
-        scan_task = Task(
-            description=f"Scan this PR body for security violations (secrets, PII): '{pr_body}'",
-            expected_output="A PASS/FAIL report with specific violation details.",
-            agent=sentinel
-        )
-
-        crew = Crew(agents=[sentinel], tasks=[scan_task], verbose=True)
-        result = crew.kickoff()
-        
-        # In a real system, you might post this back to GitHub/Slack
-        logger.info(f"   -> Sentinel Report: {result}")
 
     def trigger_incident_response(self, chat_data):
         """

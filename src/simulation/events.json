@@ -1,0 +1,255 @@
+[
+  {
+    "topic": "raw-git-prs",
+    "delay": 0,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 505,
+        "title": "Quick fix for timeout issue",
+        "body": "Running late but needed to fix the timeout. Hardcoded the AWS_ACCESS_KEY_ID='AKIA_TEST_1234' temporarily. Will move to env vars on Monday.",
+        "user": { "login": "Bob Smith" },
+        "merged_by": null,
+        "requested_reviewers": [{ "login": "Alice Chen" }],
+        "created_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 2,
+    "data": {
+      "user": "U-Bob",
+      "username": "Bob Smith",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Hey guys, I just pushed a quick patch to `kore-payments`. I know it's Friday, but it's small.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 5,
+    "data": {
+      "user": "BOT",
+      "username": "Datadog Bot",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "CRITICAL: PaymentGateway latency > 10s. Error Rate 100%.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 6,
+    "data": {
+      "user": "U-Eve",
+      "username": "Eve Polastri",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "@here Customers are reporting 500 errors on checkout! We are losing money! What changed?",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 8,
+    "data": {
+      "user": "U-Alice",
+      "username": "Alice Chen",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "I see a new PR from Bob. @Bob Smith did you deploy?",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 10,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Eve Polastri" },
+      "issue": {
+        "key": "INC-2024",
+        "fields": {
+          "summary": "Production Down: Payment Gateway Outage",
+          "description": "Full outage on checkout. Suspected bad deploy.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P0-Critical" }
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-commits",
+    "delay": 12,
+    "data": {
+      "commit": {
+        "id": "abc123-timeout-hotfix",
+        "message": "Quick hotfix for timeout, bypassing retry logic for now",
+        "author": { "name": "Bob Smith" },
+        "timestamp": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 15,
+    "data": {
+      "user": "U-SRE-John",
+      "username": "John Doe",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "I am checking the deploy logs. There was a push to main 10 minutes ago from Bob. Investigating.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 18,
+    "data": {
+      "user": "U-Manager",
+      "username": "Priya Singh",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "We already have 700+ checkout failures reported. Team, I need RCA and rollback ETA now.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 20,
+    "data": {
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "John Doe" },
+      "issue": {
+        "key": "INC-2024",
+        "fields": {
+          "summary": "Production Down: Payment Gateway Outage",
+          "description": "Rollback in progress. Root cause suspected: bad commit bypassing retry logic.",
+          "status": { "name": "Investigating" },
+          "priority": { "name": "P0-Critical" }
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 25,
+    "data": {
+      "user": "U-Bob",
+      "username": "Bob Smith",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "I might have disabled the retry backoff to speed tests. Did not expect prod to pick it up.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 30,
+    "data": {
+      "user": "BOT",
+      "username": "Datadog Bot",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "Recovery underway: latency returning to normal. Error rate dropping.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 40,
+    "data": {
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "Eve Polastri" },
+      "issue": {
+        "key": "INC-2024",
+        "fields": {
+          "summary": "Production Back Up",
+          "description": "Rollback complete. Production healthy. Root cause: unsafe Friday commit with hardcoded key and disabled safety logic.",
+          "status": { "name": "Resolved" },
+          "priority": { "name": "P0-Critical" }
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 50,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 506,
+        "title": "Security: Rotate Compromised AWS Keys",
+        "body": "Detected leaked AWS Key AKIA_TEST_1234 in previous PR #505. Rotating keys and scrubbing git history.",
+        "user": { "login": "Diana Prince" },
+        "merged_by": null,
+        "requested_reviewers": [{ "login": "Bob Smith" }],
+        "created_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 52,
+    "data": {
+      "user": "U-Diana",
+      "username": "Diana Prince",
+      "channel": "C-SEC",
+      "channel_name": "security-alerts",
+      "text": "@Bob Smith We flagged a hardcoded secret in your Friday hotfix. I'm opening a P1 security ticket. Please be more careful.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 55,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Diana Prince" },
+      "issue": {
+        "key": "SEC-3001",
+        "fields": {
+          "summary": "Credential Leak in Payment Gateway",
+          "description": "AWS Access Key leaked in PR-505. Keys must be rotated immediately per Policy SEC-102.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P1-High" }
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-commits",
+    "delay": 60,
+    "data": {
+      "commit": {
+        "id": "sec-scrub-999",
+        "message": "Scrubbing secrets from history [skip ci]",
+        "author": { "name": "Diana Prince" },
+        "timestamp": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 65,
+    "data": {
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "Diana Prince" },
+      "issue": {
+        "key": "SEC-3001",
+        "fields": {
+          "summary": "Credential Leak in Payment Gateway",
+          "description": "Keys rotated. History scrubbed. Incident closed.",
+          "status": { "name": "Resolved" },
+          "priority": { "name": "P1-High" }
+        }
+      }
+    }
+  }
+]

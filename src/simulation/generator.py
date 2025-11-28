@@ -1,136 +1,112 @@
 import json
 import time
-import random
 import os
-from kafka import KafkaProducer
-from faker import Faker
+import sys
 from datetime import datetime
+from kafka import KafkaProducer
 from dotenv import load_dotenv
 
 load_dotenv()
 
 # --- CONFIG ---
 KAFKA_BROKER = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-fake = Faker()
+EVENTS_FILE = os.getenv('SIMULATION_FILE', 'src/simulation/events.json') # Fixed path based on your folder structure
 
-producer = KafkaProducer(
-    bootstrap_servers=KAFKA_BROKER,
-    value_serializer=lambda v: json.dumps(v).encode('utf-8')
-)
+def inject_timestamps(data):
+    """
+    Recursively find and replace placeholders with actual times.
+    """
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if isinstance(v, str):
+                if v == "AUTO_ISO_TIME":
+                    data[k] = datetime.now().isoformat()
+                elif v == "AUTO_UNIX_TIME":
+                    data[k] = str(time.time())
+            elif isinstance(v, (dict, list)):
+                inject_timestamps(v)
+    elif isinstance(data, list):
+        for item in data:
+            inject_timestamps(item)
+    return data
 
-print(f"🌊 Smart Enterprise Simulation Stream Started on {KAFKA_BROKER}...")
+def run_simulation():
+    if not os.path.exists(EVENTS_FILE):
+        print(f"❌ Error: Event file '{EVENTS_FILE}' not found.")
+        sys.exit(1)
 
-# --- REALISTIC DATASETS ---
-USERS = [
-    {"id": "U101", "name": "Alice Chen", "role": "Backend Lead", "skills": ["Python", "Postgres", "Kafka"]},
-    {"id": "U102", "name": "Bob Smith", "role": "DevOps", "skills": ["Docker", "Kubernetes", "CI/CD"]},
-    {"id": "U103", "name": "Charlie Kim", "role": "Frontend Dev", "skills": ["React", "TypeScript", "Tailwind"]},
-    {"id": "U104", "name": "Diana Prince", "role": "Security Eng", "skills": ["Oauth", "PenTesting"]},
-    {"id": "U105", "name": "Eve Polastri", "role": "Product Owner", "skills": ["Jira", "Roadmap"]}
-]
+    print(f"🌊 Starting Simulation from {EVENTS_FILE} on {KAFKA_BROKER}...")
+    
+    try:
+        producer = KafkaProducer(
+            bootstrap_servers=KAFKA_BROKER,
+            value_serializer=lambda v: json.dumps(v).encode('utf-8')
+        )
+    except Exception as e:
+        print(f"❌ Kafka Connection Failed: {e}")
+        sys.exit(1)
 
-MODULES = ["AuthService", "PaymentGateway", "UserDashboard", "NotificationEngine", "SearchIndexer"]
-FILES = {
-    "AuthService": ["src/auth/login.py", "src/auth/oauth.py", "tests/test_auth.py"],
-    "PaymentGateway": ["src/payments/stripe.py", "src/payments/ledger.py"],
-    "UserDashboard": ["src/ui/Profile.tsx", "src/ui/Settings.tsx", "public/styles.css"],
-    "NotificationEngine": ["src/notifications/email.go", "src/notifications/slack_webhook.go"]
-}
+    with open(EVENTS_FILE, 'r') as f:
+        try:
+            events = json.load(f)
+        except json.JSONDecodeError as e:
+            print(f"❌ Invalid JSON syntax in {EVENTS_FILE}: {e}")
+            sys.exit(1)
 
-ACTIONS = ["Fixed", "Refactored", "Optimized", "Reverted", "Added", "Deprecated"]
-ISSUES = ["memory leak", "race condition", "NPE", "timeout issue", "security vulnerability", "CSS misalignment"]
-REASONS = ["customer complaint", "failed audit", "performance drop", "Q3 roadmap", "hotfix request"]
+    print(f"📋 Loaded {len(events)} events.")
+    
+    events.sort(key=lambda x: x.get('delay', 0))
+    start_time = time.time()
 
-# --- GENERATORS ---
+    for i, event in enumerate(events):
+        topic = event.get('topic')
+        raw_data = event.get('data')
+        delay = event.get('delay', 0)
 
-def get_smart_commit_message(module):
-    action = random.choice(ACTIONS)
-    issue = random.choice(ISSUES)
-    return f"{action} {issue} in {module} handling logic"
-
-def get_smart_chat_message(module, context="general"):
-    if context == "incident":
-        return random.choice([
-            f"Guys, {module} is throwing 500 errors again.",
-            f"Who pushed the last change to {module}? It broke the build.",
-            f"Latency on {module} just spiked to 2000ms.",
-            f"Can someone check the logs for {module}?"
-        ])
-    else:
-        return random.choice([
-            f"I'm refactoring the {module} API, might be some breaking changes.",
-            f"Just deployed {module} v2.1 to staging.",
-            f"Does {module} handle async requests correctly?",
-            f"Reviewing the PR for {module} now."
-        ])
-
-def generate_event_stream():
-    while True:
-        module = random.choice(MODULES)
-        user = random.choice(USERS)
+        # 1. Wait
+        target_time = start_time + delay
+        wait_seconds = target_time - time.time()
         
-        # 1. GITHUB COMMIT
-        if random.random() < 0.4:
-            repo_name = "kore-backend" if "src" in FILES[module][0] else "kore-frontend"
-            commit_msg = get_smart_commit_message(module)
-            
-            event = {
-                "ref": "refs/heads/main",
-                "repository": {"name": repo_name},
-                "pusher": {"name": user["name"], "email": f"{user['name'].split()[0].lower()}@kore.ai"},
-                "commits": [{
-                    "id": fake.sha1()[:7],
-                    "message": commit_msg,
-                    "timestamp": datetime.now().isoformat(),
-                    "author": {"name": user["name"]},
-                    "modified": [random.choice(FILES[module])]
-                }]
-            }
-            producer.send('raw-git-commits', event)
-            print(f"💻 [Git] {user['name']} -> {commit_msg}")
+        if wait_seconds > 0:
+            print(f"⏳ Waiting {wait_seconds:.1f}s...")
+            time.sleep(wait_seconds)
 
-        # 2. SLACK CHAT (FIXED)
-        if random.random() < 0.5:
-            is_incident = random.random() < 0.2
-            # FIX: Define both Name and ID
-            channel_name = "incidents" if is_incident else "dev-general"
-            channel_id = "C-INC" if is_incident else "C-GEN"
+        # 2. Inject & Send
+        payload = inject_timestamps(raw_data)
+        
+        try:
+            producer.send(topic, payload)
             
-            text = get_smart_chat_message(module, "incident" if is_incident else "general")
+            # --- IMPROVED LOGGING FOR STATE TRACKING ---
+            info = "Event"
+            elapsed = int(time.time() - start_time)
             
-            event = {
-                "user": user["id"],
-                "username": user["name"],
-                "text": text,
-                "channel": channel_id,        # <--- THIS WAS MISSING
-                "channel_name": channel_name,
-                "ts": str(time.time())
-            }
-            producer.send('raw-slack-chats', event)
-            print(f"💬 [Slack] {user['name']}: {text}")
+            if topic == 'raw-slack-chats':
+                user = payload.get('username', 'Unknown')
+                text = payload.get('text', '')[:40]
+                info = f"💬 Slack [{user}]: {text}..."
+                
+            elif topic == 'raw-jira-tickets':
+                key = payload.get('issue', {}).get('key')
+                status = payload.get('issue', {}).get('fields', {}).get('status', {}).get('name')
+                # THIS IS THE TRACKING YOU ASKED FOR:
+                info = f"🎫 Jira [{key}] Status Update -> {status.upper()}"
+                
+            elif topic == 'raw-git-prs':
+                pr = payload.get('pull_request', {}).get('number')
+                info = f"🐙 PR [#{pr}] Opened"
 
-        # 3. JIRA TICKET
-        if random.random() < 0.2:
-            event = {
-                "webhookEvent": "jira:issue_created",
-                "issue": {
-                    "key": f"KORE-{random.randint(100,999)}",
-                    "fields": {
-                        "summary": f"{random.choice(ACTIONS)} {module} {random.choice(ISSUES)}",
-                        "description": f"Observed {random.choice(ISSUES)} in {module} during {random.choice(REASONS)}.",
-                        "status": {"name": "Open"},
-                        "priority": {"name": "High"}
-                    }
-                },
-                "user": {"name": user["name"]}
-            }
-            producer.send('raw-jira-tickets', event)
-            print(f"🎫 [Jira] New Ticket: {event['issue']['fields']['summary']}")
+            print(f"✅ [{elapsed}s] {info}")
+            
+        except Exception as e:
+            print(f"❌ Send Failed: {e}")
 
-        time.sleep(random.uniform(5, 8)) # Slow for API limits
+    producer.flush()
+    producer.close()
+    print("\n🎬 Simulation Complete.")
 
 if __name__ == "__main__":
     try:
-        generate_event_stream()
+        run_simulation()
     except KeyboardInterrupt:
-        print("🛑 Simulation stopped.")
+        print("\n🛑 Simulation cancelled.")
