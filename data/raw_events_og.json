@@ -1,0 +1,1142 @@
+[
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "3d865bff-adf4-4fd5-87a0-ac4a194a4cc7",
+    "timestamp": "2025-11-22T02:36:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-111",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "bdecd4ed-a672-49c7-8482-44d25b664881",
+    "timestamp": "2025-11-22T02:39:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-118",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "01388a2f-1972-4164-aa83-990ccd9bb056",
+    "timestamp": "2025-11-22T03:09:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "cf841d84-352b-48ff-89e6-0dfe764c12ef",
+      "text": "I just raised KORE-118 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-118"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "926c1aef-1545-4106-a313-08313083e0b8",
+    "timestamp": "2025-11-22T03:14:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "cf841d84-352b-48ff-89e6-0dfe764c12ef",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "f1b080ab-14a6-4297-a90a-a8c562f1f54f",
+    "timestamp": "2025-11-22T03:31:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "fa05cc22-e49d-476e-9c3e-1c301907b7ba",
+      "text": "I just raised KORE-111 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-111"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "c3865d44-2a3c-4726-bf9a-8e7d97d8c39a",
+    "timestamp": "2025-11-22T03:36:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "fa05cc22-e49d-476e-9c3e-1c301907b7ba",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "1af94f4b-8bc1-4546-b076-a396876802f2",
+    "timestamp": "2025-11-22T04:01:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-110",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "28520b5a-88fb-4a70-afdb-42ed7c683301",
+    "timestamp": "2025-11-22T04:09:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "c041341",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-118",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "2711d345-8eb7-467a-9f53-404efef0c3f9",
+    "timestamp": "2025-11-22T04:55:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "6bfd24f4-06d9-4f44-9c49-d3ab6b07a1f4",
+      "text": "I just raised KORE-110 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-110"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "bec07500-2bae-414a-bbe7-4fa4196bc2f1",
+    "timestamp": "2025-11-22T05:00:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "6bfd24f4-06d9-4f44-9c49-d3ab6b07a1f4",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "2c3aa1b8-5587-4da0-b67f-1cb48e55b63a",
+    "timestamp": "2025-11-22T05:55:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "2073c16",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-110",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "b6c439b9-67b8-4f87-ac2b-b538ce0d1815",
+    "timestamp": "2025-11-22T07:31:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "df67817",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-111",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "6cf1aaa1-6de3-4f41-a4e5-22e6166b1139",
+    "timestamp": "2025-11-22T12:25:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-102",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "fd5d7ffa-7500-4b7b-b09d-cee30bd0b3aa",
+    "timestamp": "2025-11-22T12:45:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "d47cc62f-6296-456b-a4a4-6f7cc3ed3680",
+      "text": "I just raised KORE-102 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-102"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "693dd962-4f93-49d9-8eb6-2b95da36fc00",
+    "timestamp": "2025-11-22T12:50:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "d47cc62f-6296-456b-a4a4-6f7cc3ed3680",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "e4a8ca40-906a-4fdd-96c0-579fe09bfb16",
+    "timestamp": "2025-11-22T13:45:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "61a33a1",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-102",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "bc3f66b3-e236-4b7f-a1a1-0fce71018946",
+    "timestamp": "2025-11-23T07:14:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-116",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "defee0f1-1cd7-4e39-a9da-559eceb0c616",
+    "timestamp": "2025-11-23T07:46:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "8417833b-d6be-4d7b-aa9b-99d3a924a726",
+      "text": "I just raised KORE-116 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-116"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "6b7ade65-4130-4ee3-8376-b41df3a0ea08",
+    "timestamp": "2025-11-23T07:51:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "8417833b-d6be-4d7b-aa9b-99d3a924a726",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "13c72554-4c1b-4c3b-b958-8fb1655fc1a7",
+    "timestamp": "2025-11-23T10:46:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "e7435d6",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-116",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "ab92392f-9e57-46a0-bd03-afda2811e0da",
+    "timestamp": "2025-11-23T13:06:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-113",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "a5876890-bd3b-4bc1-af91-05dfe98be256",
+    "timestamp": "2025-11-23T13:18:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "9912efba-be6e-47bb-936e-ddfd3676bfa7",
+      "text": "I just raised KORE-113 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-113"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "bebea499-1c14-44c4-9a12-dd621159c13f",
+    "timestamp": "2025-11-23T13:23:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "9912efba-be6e-47bb-936e-ddfd3676bfa7",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "437163ca-1ae9-4227-b81c-0f3ff72c88ac",
+    "timestamp": "2025-11-23T15:18:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "repo": "kore-backend",
+      "branch": "main",
+      "commit_hash": "966d397",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-113",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "5beeedc0-4d94-45eb-abb5-1d6316d669d7",
+    "timestamp": "2025-11-24T07:32:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-112",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "2e77d1f4-380c-43bd-9bb5-803df8923cc6",
+    "timestamp": "2025-11-24T08:02:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "a9682d6e-f540-413c-a0aa-0a96eceb9c85",
+      "text": "I just raised KORE-112 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-112"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "cbdefe7d-9a78-442a-9aa7-12a2a766593f",
+    "timestamp": "2025-11-24T08:07:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "a9682d6e-f540-413c-a0aa-0a96eceb9c85",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "82aef3b0-2070-4033-8420-f81e48c18f09",
+    "timestamp": "2025-11-24T09:02:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-backend",
+      "branch": "main",
+      "commit_hash": "9a997fb",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-112",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "72a4c83e-abc2-4f2c-8a06-4a57bb1d63f4",
+    "timestamp": "2025-11-24T10:33:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-107",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "fc6bc51c-5b0a-4b2c-a672-67abed606071",
+    "timestamp": "2025-11-24T10:46:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "7fe8a4b3-ffda-4e2b-b70c-37a0ecdc7c8c",
+      "text": "I just raised KORE-107 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-107"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "b3f3acdf-69d2-4455-a117-b14ffea2f8cd",
+    "timestamp": "2025-11-24T10:51:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "7fe8a4b3-ffda-4e2b-b70c-37a0ecdc7c8c",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "e5eb831f-175a-4b3f-8a23-110d9d0d6886",
+    "timestamp": "2025-11-24T12:46:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "4feefa5",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-107",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "82465d6d-baa4-472a-8da2-1247f49014b4",
+    "timestamp": "2025-11-24T13:45:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-100",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "869f04f0-e12e-4acf-b288-ca94dc977db0",
+    "timestamp": "2025-11-24T14:13:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "3d4668b0-4647-455a-a4c5-7b051363c464",
+      "text": "I just raised KORE-100 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-100"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "be8f6914-9285-4f33-86da-8d956dd34f38",
+    "timestamp": "2025-11-24T14:18:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "3d4668b0-4647-455a-a4c5-7b051363c464",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "702d48aa-e9d5-4902-b6b4-edcf8b63ceef",
+    "timestamp": "2025-11-24T14:28:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-104",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "42eda927-082f-46c1-80f3-946b6b440dd3",
+    "timestamp": "2025-11-24T15:03:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "afc83e5a-ee8a-4b38-a56b-c3f42e148ebd",
+      "text": "I just raised KORE-104 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-104"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "29bf3d4d-2212-4b09-b514-bea947fd154b",
+    "timestamp": "2025-11-24T15:08:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "afc83e5a-ee8a-4b38-a56b-c3f42e148ebd",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "6bbcae7a-3af1-4469-af8c-e60b145ef8e7",
+    "timestamp": "2025-11-24T17:03:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "d06ca81",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-104",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "5b32f88b-c3b0-4862-afd9-12e7ce0eda9a",
+    "timestamp": "2025-11-24T17:13:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "ebd900b",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-100",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "08cc2ee4-5704-41d1-8880-06fb471abd43",
+    "timestamp": "2025-11-25T01:31:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-109",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "bfa80e33-1701-4f7e-a486-fdab242b0c55",
+    "timestamp": "2025-11-25T02:26:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "cbc6bbe1-8c22-4c28-af85-a09084c72c0b",
+      "text": "I just raised KORE-109 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-109"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "b0f43725-004e-4076-ba44-462f92cc4eb4",
+    "timestamp": "2025-11-25T02:31:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "cbc6bbe1-8c22-4c28-af85-a09084c72c0b",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "7504a26c-32f0-4230-84c3-45f4fec857d4",
+    "timestamp": "2025-11-25T06:26:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "aa3cba3",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-109",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "a8c6b227-55df-4ec7-9015-233d5589e9df",
+    "timestamp": "2025-11-25T11:11:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-101",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "ae164e5c-479d-4afe-9737-e02a03fca459",
+    "timestamp": "2025-11-25T11:21:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "fb32a8a1-5f11-418b-975d-9ad3932b87ca",
+      "text": "I just raised KORE-101 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-101"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "b6992201-d3e4-4225-86a0-24859f3c23cb",
+    "timestamp": "2025-11-25T11:26:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "fb32a8a1-5f11-418b-975d-9ad3932b87ca",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "d947ec4c-a42c-4814-904b-d5693ecd11d5",
+    "timestamp": "2025-11-25T12:20:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-119",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "2e581163-c39c-42a7-91d3-a25b44820247",
+    "timestamp": "2025-11-25T13:11:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "1094c4aa-2f9b-4f72-8782-11725e51e393",
+      "text": "I just raised KORE-119 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-119"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "f8b5b9db-6964-4cd6-9e0f-7615eff9b7d3",
+    "timestamp": "2025-11-25T13:16:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "1094c4aa-2f9b-4f72-8782-11725e51e393",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "4665d8ef-532a-4821-8de5-7e33baabcf47",
+    "timestamp": "2025-11-25T13:21:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "39a98c5",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-101",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "08cedfb2-b44d-4429-a3df-8a4e2948ce26",
+    "timestamp": "2025-11-25T16:27:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-117",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "afdde699-86a9-4898-8125-3cb16a5d500f",
+    "timestamp": "2025-11-25T16:40:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "55112351-1395-4c80-bf94-5a58cfb488fc",
+      "text": "I just raised KORE-117 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-117"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "9bca0b79-4472-405c-9329-7b5e11aa74e1",
+    "timestamp": "2025-11-25T16:45:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "55112351-1395-4c80-bf94-5a58cfb488fc",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "b16b5d6d-06e9-4023-a5af-e2c0c9a67cc7",
+    "timestamp": "2025-11-25T17:11:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "7a673d0",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-119",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "2dae485c-d831-4b01-8e23-8ba0dd30d9ee",
+    "timestamp": "2025-11-25T17:40:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-105",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "55624bd2-6803-4e69-8861-740d61208f0a",
+    "timestamp": "2025-11-25T18:03:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "4f0043c3-fd4e-4589-b00a-c8d46f8c0daf",
+      "text": "I just raised KORE-105 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-105"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "6d0c3731-ea05-4c34-a842-81fcd0bd3108",
+    "timestamp": "2025-11-25T18:08:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "4f0043c3-fd4e-4589-b00a-c8d46f8c0daf",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "e6b9b762-e390-4c3c-b924-a0ffbd672dc0",
+    "timestamp": "2025-11-25T20:03:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "37782bd",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-105",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "0c905beb-6e96-471c-a0c2-8ed00541d370",
+    "timestamp": "2025-11-25T20:40:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "a125500",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-117",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "b18df858-246e-46fe-9ce1-e7dde3059941",
+    "timestamp": "2025-11-26T04:58:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-115",
+      "status": "Open",
+      "summary": "Fix critical bug in payment-gateway",
+      "description": "Observed 500 errors in payment-gateway logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "06391c87-8892-48aa-bdb8-5a38540b8ee2",
+    "timestamp": "2025-11-26T05:15:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "561c425b-5159-481e-86da-5bae2fbee1e1",
+      "text": "I just raised KORE-115 for the payment-gateway crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-115"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "ba98c40f-b25b-4b6d-be58-6d0f0ec1d95b",
+    "timestamp": "2025-11-26T05:20:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "561c425b-5159-481e-86da-5bae2fbee1e1",
+      "text": "Checking payment-gateway logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "90c3a61b-aeb0-4fc4-a164-6fb3b6482cb7",
+    "timestamp": "2025-11-26T08:15:54.857476",
+    "actor": "diana@kore.tech",
+    "payload": {
+      "repo": "kore-backend",
+      "branch": "main",
+      "commit_hash": "1c12562",
+      "message": "fix(payment-gateway): resolve memory leak connection pool. Ref: KORE-115",
+      "files_changed": [
+        "src/payment-gateway/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "35414c72-16bb-4a60-b655-46e602ba6ce0",
+    "timestamp": "2025-11-26T11:26:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-106",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "701382bf-85eb-483b-b409-3ceb837f86d9",
+    "timestamp": "2025-11-26T11:43:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "faa9a7bd-7a6a-4cc9-991b-f5f6c57d6e94",
+      "text": "I just raised KORE-106 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-106"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "71ecfe49-d04d-473e-8b3b-cb61352f0af2",
+    "timestamp": "2025-11-26T11:48:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "faa9a7bd-7a6a-4cc9-991b-f5f6c57d6e94",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "5ff83841-ab15-4f86-8399-51f732660b1b",
+    "timestamp": "2025-11-26T13:43:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "e16844b",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-106",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "e494e5e0-5160-4441-87d6-c507bef5dbb0",
+    "timestamp": "2025-11-27T22:08:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-103",
+      "status": "Open",
+      "summary": "Fix critical bug in notification-worker",
+      "description": "Observed 500 errors in notification-worker logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "490a5de6-e041-47e0-9a7b-01772b1820c5",
+    "timestamp": "2025-11-27T22:41:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "816616d1-9492-45c9-b48b-d8c66a609b7b",
+      "text": "I just raised KORE-103 for the notification-worker crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-103"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "5757bcc5-b88c-4d97-b807-077b33455c06",
+    "timestamp": "2025-11-27T22:46:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "816616d1-9492-45c9-b48b-d8c66a609b7b",
+      "text": "Checking notification-worker logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "0fe4811b-327c-4c4e-a6f8-9547ff7622de",
+    "timestamp": "2025-11-28T01:41:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "repo": "kore-ui",
+      "branch": "main",
+      "commit_hash": "aa2f76b",
+      "message": "fix(notification-worker): resolve memory leak connection pool. Ref: KORE-103",
+      "files_changed": [
+        "src/notification-worker/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "71ee8a45-84de-4da6-9ab8-3ac5bdf62fd5",
+    "timestamp": "2025-11-28T03:19:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-114",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "172d5e4e-2ed0-4de8-94a5-3e30f250984e",
+    "timestamp": "2025-11-28T04:07:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "808ef4c4-6d56-4fd5-a8fa-3231d0bcfd80",
+      "text": "I just raised KORE-114 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-114"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "5918bcbb-c1ba-4cb5-9e68-2c683b8749e0",
+    "timestamp": "2025-11-28T04:12:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "808ef4c4-6d56-4fd5-a8fa-3231d0bcfd80",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "eb09136b-44f1-4782-909c-6ea37d42fd7d",
+    "timestamp": "2025-11-28T08:07:54.857476",
+    "actor": "charlie@kore.tech",
+    "payload": {
+      "repo": "kore-backend",
+      "branch": "main",
+      "commit_hash": "8163cce",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-114",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  },
+  {
+    "source": "jira",
+    "event_type": "issue_created",
+    "id": "6d96820a-92bb-42fd-992e-e7014e0c9eab",
+    "timestamp": "2025-11-28T10:07:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "ticket_id": "KORE-108",
+      "status": "Open",
+      "summary": "Fix critical bug in auth-service",
+      "description": "Observed 500 errors in auth-service logs regarding timeout.",
+      "priority": "High"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "0ee0f03f-50a1-49e9-9eb5-308de8d3e821",
+    "timestamp": "2025-11-28T10:25:54.857476",
+    "actor": "alice@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "13fb4404-cc59-452c-b349-7d28c6563bd5",
+      "text": "I just raised KORE-108 for the auth-service crashes. Can someone look?"
+    },
+    "metadata": {
+      "related_ticket": "KORE-108"
+    }
+  },
+  {
+    "source": "slack",
+    "event_type": "message",
+    "id": "8695aa05-81a6-469b-a62c-8970662ffcbe",
+    "timestamp": "2025-11-28T10:30:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "channel": "ops-incident",
+      "thread_id": "13fb4404-cc59-452c-b349-7d28c6563bd5",
+      "text": "Checking auth-service logs now. Looks like a memory leak."
+    }
+  },
+  {
+    "source": "github",
+    "event_type": "push",
+    "id": "b6a17516-7064-4e3a-9fe6-03de7ca1bbdf",
+    "timestamp": "2025-11-28T13:25:54.857476",
+    "actor": "bob@kore.tech",
+    "payload": {
+      "repo": "kore-infra",
+      "branch": "main",
+      "commit_hash": "bfe92a2",
+      "message": "fix(auth-service): resolve memory leak connection pool. Ref: KORE-108",
+      "files_changed": [
+        "src/auth-service/db_client.py"
+      ]
+    }
+  }
+]
