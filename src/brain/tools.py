@@ -6,7 +6,8 @@ from langchain_neo4j import Neo4jGraph
 from langchain_cohere import CohereEmbeddings
 import chromadb
 from dotenv import load_dotenv
-
+import re
+from kafka import KafkaProducer
 load_dotenv()
 logger = logging.getLogger("KoreTools")
 
@@ -101,23 +102,30 @@ class KoreTools:
         Output: Snippets of relevant documents (Slack chats, Commit messages, Ticket descriptions).
         """
         logger.info(f"📖 Searching Docs for: {query}")
-        results = vector_store.similarity_search(query, k=5)
+        results = vector_store.similarity_search(query, k=3)
         return "\n\n".join([f"[Source: {doc.metadata.get('source')}] {doc.page_content}" for doc in results])
-
+ 
     @tool("Policy Compliance Checker")
     def check_compliance(text: str):
         """
-        Analyzes text (like code or PR bodies) for security violations.
-        Input: The text to analyze.
-        Output: "PASS" or "VIOLATION" with a reason.
+        Analyzes text for security violations using Regex patterns.
+        Checks for: AWS Keys, Private Keys, Generic API Tokens.
         """
-        # In a real app, this would use a Regex or an LLM call
         violations = []
-        if "API_KEY" in text or "sk_live" in text:
-            violations.append("Potential API Key exposed")
-        if "password =" in text.lower():
-            violations.append("Hardcoded password detected")
+        
+        # 1. AWS Access Key ID (Starts with AKIA, 20 chars)
+        if re.search(r'AKIA[0-9A-Z]{16}', text):
+            violations.append("CRITICAL: AWS Access Key ID detected (Pattern: AKIA...)")
             
+        # 2. Generic "Secret" assignment
+        if re.search(r'(api_key|secret|password)\s*=\s*[\'"][^\'"]+[\'"]', text, re.IGNORECASE):
+            violations.append("Potential Hardcoded Secret assignment")
+            
+        # 3. Private Keys
+        if "BEGIN PRIVATE KEY" in text:
+            violations.append("RSA Private Key detected")
+
         if violations:
-            return f"VIOLATION: {', '.join(violations)}. (Security Policy Sec-4.2)"
-        return "PASS: No obvious policy violations found."
+            return f"FAIL: Found {len(violations)} violations.\n - " + "\n - ".join(violations)
+        
+        return "PASS: No patterns matched."

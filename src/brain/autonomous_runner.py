@@ -5,6 +5,8 @@ from kafka import KafkaConsumer
 from src.brain.agents import KoreAgents
 from crewai import Task, Crew, Process
 from dotenv import load_dotenv
+import time
+from kafka import KafkaProducer
 
 # --- CONFIG ---
 load_dotenv()
@@ -17,6 +19,10 @@ class AutonomousBrain:
     def __init__(self):
         self._setup_kafka()
         self.agents = KoreAgents()
+        self.producer = KafkaProducer(
+        bootstrap_servers=KAFKA_BROKER,
+        value_serializer=lambda v: json.dumps(v).encode('utf-8')
+    )
 
     def _setup_kafka(self):
         """Initialize Consumer for raw streams."""
@@ -80,7 +86,63 @@ class AutonomousBrain:
 
         crew = Crew(agents=[commander], tasks=[investigate_task], verbose=True)
         result = crew.kickoff()
+        # Send to UI
+        alert_payload = {
+            "agent": "Incident Swarm",
+            "status": "WARNING",
+            "message": str(result),
+            "timestamp": time.time()
+        }
+        self.producer.send('kore-autonomous-alerts', alert_payload)
+        self.producer.flush()
         logger.info(f"   -> Swarm Report: {result}")
+    
+    def trigger_policy_scan(self, pr_data):
+        """
+        Triggered by: raw-git-prs
+        Agent: Policy Sentinel
+        Goal: Check for secrets/compliance against Vector Store Policies.
+        """
+        pr_body = pr_data.get('pull_request', {}).get('body', '')
+        pr_title = pr_data.get('pull_request', {}).get('title', 'Unknown')
+        
+        # New: Get the creation time to check against "Friday" policy
+        created_at = pr_data.get('pull_request', {}).get('created_at', '')
+        
+        logger.info(f"🛡️ [Sentinel] Scanning PR: {pr_title}")
+        
+        sentinel = self.agents.policy_sentinel()
+        
+        # Enhanced Task Description
+        scan_task = Task(
+            description=(
+                f"Review this PR: '{pr_title}'\nBody: '{pr_body}'\nTime: {created_at}\n\n"
+                "1. Check for hardcoded secrets (API keys, passwords).\n"
+                "2. Check if this violates the 'Deployment Freeze' policy (Use 'search_documents' tool to find the policy).\n"
+                "3. Use 'check_compliance' tool for pattern matching."
+            ),
+            expected_output="A PASS/FAIL report citing specific Policy IDs (e.g. SEC-102, POL-001) if violated.",
+            agent=sentinel
+        )
+
+        crew = Crew(agents=[sentinel], tasks=[scan_task], verbose=True)
+        result = crew.kickoff()
+        # Send to UI
+        alert_payload = {
+            "agent": "Policy Sentinel",
+            "status": "FAIL" if "FAIL" in str(result) else "PASS",
+            "message": str(result),
+            "timestamp": time.time()
+        }
+        self.producer.send('kore-autonomous-alerts', alert_payload)
+        self.producer.flush()
+        
+        logger.info(f"   -> Sentinel Report: \n{result}")
+        
+        # --- NEW: SEND TO UI ---
+        # This answers "Where is the output shown?". 
+        # We send it to the 'kore-responses' topic so the UI can pick it up if we want,
+        # or we just log it for now.
 
     def run(self):
         """Main Event Loop."""
