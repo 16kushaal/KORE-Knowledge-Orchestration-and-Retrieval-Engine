@@ -1,136 +1,228 @@
 import json
 import os
+import re
+import logging
 from kafka import KafkaConsumer
 from neo4j import GraphDatabase
 import chromadb
 from langchain_cohere import CohereEmbeddings
 from dotenv import load_dotenv
 
-load_dotenv()
-
 # --- CONFIG ---
+load_dotenv()
+logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
+logger = logging.getLogger("KoreIngestor")
+
 KAFKA_BROKER = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
 NEO4J_AUTH = (os.getenv('NEO4J_USER', 'neo4j'), os.getenv('NEO4J_PASSWORD', 'password'))
 
-print("🔌 Connecting to Knowledge Bases...")
-neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
-chroma_client = chromadb.HttpClient(host=os.getenv('CHROMA_HOST', 'localhost'), port=8000)
-collection = chroma_client.get_or_create_collection(name="kore_knowledge")
+class KoreIngestor:
+    def __init__(self):
+        self._connect_dbs()
+        self._setup_embeddings()
+        self._setup_consumer()
 
-print("🧠 Loading Cohere Embedding API...")
-embed_model = CohereEmbeddings(
-    model="embed-english-v3.0",
-    cohere_api_key=os.getenv("COHERE_API_KEY")
-)
+    def _connect_dbs(self):
+        """Initialize connections to Neo4j and ChromaDB."""
+        try:
+            logger.info("🔌 Connecting to Knowledge Bases...")
+            self.neo4j_driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
+            self.neo4j_driver.verify_connectivity()
+            
+            self.chroma_client = chromadb.HttpClient(host=os.getenv('CHROMA_HOST', 'localhost'), port=8000)
+            self.collection = self.chroma_client.get_or_create_collection(name="kore_knowledge")
+            logger.info("✅ DB Connections Successful.")
+        except Exception as e:
+            logger.error(f"❌ DB Connection Failed: {e}")
+            raise e
 
-consumer = KafkaConsumer(
-    'raw-slack-chats', 'raw-jira-tickets', 'raw-git-commits',
-    bootstrap_servers=KAFKA_BROKER,
-    value_deserializer=lambda x: json.loads(x.decode('utf-8')),
-    auto_offset_reset='latest',
-    group_id='kore-indexer-v2'
-)
+    def _setup_embeddings(self):
+        """Initialize the Embedding Model."""
+        self.embed_model = CohereEmbeddings(
+            model="embed-english-v3.0",
+            cohere_api_key=os.getenv("COHERE_API_KEY")
+        )
 
-# --- HELPER LOGIC ---
-def extract_service_name(text):
-    text = text.lower()
-    if "payment" in text or "ledger" in text: return "PaymentGateway"
-    if "auth" in text or "login" in text: return "AuthService"
-    if "frontend" in text or "ui" in text: return "FrontendApp"
-    return "GeneralBackend"
+    def _setup_consumer(self):
+        """Initialize Kafka Consumer."""
+        self.consumer = KafkaConsumer(
+            'raw-slack-chats', 'raw-jira-tickets', 'raw-git-commits', 'raw-git-prs',
+            bootstrap_servers=KAFKA_BROKER,
+            value_deserializer=lambda x: json.loads(x.decode('utf-8')),
+            auto_offset_reset='latest',
+            group_id='kore-indexer-enterprise-v2'
+        )
 
-def index_jira(data):
-    issue = data.get('issue', {})
-    user = data.get('user', {})
-    key = issue.get('key')
-    summary = issue.get('fields', {}).get('summary')
-    desc = issue.get('fields', {}).get('description')
-    
-    # 1. Identify Service
-    service_name = extract_service_name(summary + " " + (desc or ""))
+    def run(self):
+        """Main Event Loop."""
+        logger.info("🚀 Enterprise Ingestion Running...")
+        for msg in self.consumer:
+            try:
+                self.process_message(msg.topic, msg.value)
+            except Exception as e:
+                logger.error(f"❌ Error processing {msg.topic}: {e}")
 
-    # 2. Graph Update (User -> Ticket -> Service)
-    query = """
-    MERGE (u:User {name: $reporter})
-    MERGE (t:Ticket {key: $key})
-    SET t.summary = $summary
-    MERGE (s:Service {name: $service})
-    
-    MERGE (u)-[:REPORTED]->(t)
-    MERGE (t)-[:AFFECTS]->(s)
-    """
-    with neo4j_driver.session() as session:
-        session.run(query, reporter=user.get('name'), key=key, summary=summary, service=service_name)
+    def process_message(self, topic, data):
+        """Dispatcher: Routes topics to specific indexers."""
+        if topic == 'raw-git-prs':
+            self.index_pr(data)
+        elif topic == 'raw-jira-tickets':
+            self.index_jira(data)
+        elif topic == 'raw-git-commits':
+            self.index_git(data)
+        elif topic == 'raw-slack-chats':
+            self.index_slack(data)
 
-    # 3. Vector Update
-    full_text = f"{key}: {summary}\n{desc}"
-    vector = embed_model.embed_query(full_text)
-    collection.add(
-        ids=[f"jira_{key}"],
-        embeddings=[vector],
-        documents=[full_text],
-        metadatas=[{"source": "jira", "key": key, "service": service_name}]
-    )
-    print(f"✅ Indexed Jira: {key} (Linked to {service_name})")
+    # --- INDEXERS ---
 
-def index_git(data):
-    repo = data.get('repository', {}).get('name')
-    
-    for commit in data.get('commits', []):
-        message = commit['message']
-        author_name = commit['author']['name']
+    def index_pr(self, data):
+        """
+        Ingests Pull Requests.
+        Graph: (User)-[:OPENED]->(PR)-[:FIXES]->(Ticket)
+        """
+        pr = data.get('pull_request', {})
+        repo = data.get('repository', {}).get('name')
+        if not pr: return
+
+        pr_id = f"{repo}-PR-{pr.get('number')}"
+        title = pr.get('title')
+        body = pr.get('body') or ""
+        author = pr.get('user', {}).get('login')
+        merger = pr.get('merged_by', {}).get('login') if pr.get('merged_by') else None
         
-        # 1. Parse Ticket Key (e.g., "Fix KORE-500")
-        ticket_key = next((word for word in message.split() if word.startswith("KORE-")), None)
-        
-        # 2. Graph Update
+        # 1. Neo4j Update
         query = """
         MERGE (u:User {name: $author})
+        MERGE (pr:PullRequest {id: $pr_id})
+        SET pr.title = $title, pr.body = $body, pr.url = $url
         MERGE (r:Repository {name: $repo})
-        MERGE (c:Commit {hash: $hash})
-        SET c.message = $msg
-        MERGE (u)-[:WROTE]->(c)
-        MERGE (c)-[:BELONGS_TO]->(r)
+        MERGE (u)-[:OPENED]->(pr)
+        MERGE (pr)-[:BELONGS_TO]->(r)
         """
         
-        # If ticket found, link Commit -> Ticket
-        if ticket_key:
-            # Note: We MERGE the ticket just in case Git arrives before Jira
+        # Regex to find linked tickets (e.g., "Closes KORE-123")
+        ticket_match = re.search(r'(KORE-\d+)', f"{title} {body}")
+        if ticket_match:
+            ticket_key = ticket_match.group(1)
             query += f"""
             MERGE (t:Ticket {{key: '{ticket_key}'}})
-            MERGE (c)-[:FIXES]->(t)
+            MERGE (pr)-[:FIXES]->(t)
             """
-            
-        with neo4j_driver.session() as session:
-            session.run(query, author=author_name, repo=repo, hash=commit['id'], msg=message)
-            
-        # 3. Vector Update
-        vector = embed_model.embed_query(message)
-        collection.add(
-            ids=[f"git_{commit['id']}"],
-            embeddings=[vector],
-            documents=[message],
-            metadatas=[{"source": "github", "repo": repo, "author": author_name}]
-        )
-        print(f"✅ Indexed Commit by {author_name}")
 
-def index_slack(data):
-    # Simplified Slack Indexing
-    text = data.get('text')
-    user = data.get('username')
-    vector = embed_model.embed_query(text)
-    collection.add(
-        ids=[f"slack_{data['ts']}"],
-        embeddings=[vector],
-        documents=[text],
-        metadatas=[{"source": "slack", "user": user}]
-    )
-    print(f"✅ Indexed Slack from {user}")
+        if merger:
+            query += f"""
+            MERGE (m:User {{name: '{merger}'}})
+            MERGE (pr)-[:MERGED_BY]->(m)
+            """
+
+        with self.neo4j_driver.session() as session:
+            session.run(query, author=author, pr_id=pr_id, title=title, body=body, repo=repo, url=pr.get('html_url', ''))
+
+        # 2. Vector Update
+        self._add_vector(
+            doc_id=f"pr_{pr_id}",
+            text=f"PR: {title}\nDetails: {body}\nAuthor: {author}",
+            metadata={"source": "github-pr", "id": pr_id, "author": author, "repo": repo}
+        )
+        logger.info(f"✅ Indexed PR: {title}")
+
+    def index_jira(self, data):
+        """
+        Ingests Jira Tickets.
+        Graph: (User)-[:REPORTED]->(Ticket)-[:AFFECTS]->(Service)
+        """
+        issue = data.get('issue', {})
+        if not issue: return
+
+        key = issue.get('key')
+        fields = issue.get('fields', {})
+        summary = fields.get('summary')
+        desc = fields.get('description') or ""
+        reporter = data.get('user', {}).get('name', 'Unknown')
+
+        # Heuristic Service Mapping
+        service = "GeneralBackend"
+        text_lower = (summary + desc).lower()
+        if "payment" in text_lower or "ledger" in text_lower: service = "PaymentGateway"
+        elif "auth" in text_lower or "login" in text_lower: service = "AuthService"
+        elif "ui" in text_lower or "css" in text_lower: service = "Frontend"
+
+        query = """
+        MERGE (u:User {name: $reporter})
+        MERGE (t:Ticket {key: $key})
+        SET t.summary = $summary, t.status = $status
+        MERGE (s:Service {name: $service})
+        MERGE (u)-[:REPORTED]->(t)
+        MERGE (t)-[:AFFECTS]->(s)
+        """
+        
+        with self.neo4j_driver.session() as session:
+            session.run(query, reporter=reporter, key=key, summary=summary, status=fields.get('status', {}).get('name'), service=service)
+
+        self._add_vector(
+            doc_id=f"jira_{key}",
+            text=f"Ticket {key}: {summary}\nDescription: {desc}",
+            metadata={"source": "jira", "key": key, "service": service}
+        )
+        logger.info(f"✅ Indexed Jira: {key} ({service})")
+
+    def index_git(self, data):
+        """Ingests Commits."""
+        repo = data.get('repository', {}).get('name')
+        for commit in data.get('commits', []):
+            msg = commit['message']
+            author = commit['author']['name']
+            c_hash = commit['id']
+
+            query = """
+            MERGE (u:User {name: $author})
+            MERGE (r:Repository {name: $repo})
+            MERGE (c:Commit {hash: $hash})
+            SET c.message = $msg
+            MERGE (u)-[:WROTE]->(c)
+            MERGE (c)-[:BELONGS_TO]->(r)
+            """
+            with self.neo4j_driver.session() as session:
+                session.run(query, author=author, repo=repo, hash=c_hash, msg=msg)
+
+            self._add_vector(
+                doc_id=f"git_{c_hash}",
+                text=f"Commit in {repo}: {msg}",
+                metadata={"source": "github-commit", "repo": repo, "author": author}
+            )
+        logger.info(f"✅ Indexed Commits for {repo}")
+
+    def index_slack(self, data):
+        """Ingests Slack Messages."""
+        text = data.get('text')
+        user = data.get('username')
+        ts = data.get('ts')
+        
+        # We only Vectorize Slack (Graph value is low for unstructured chat unless linked)
+        self._add_vector(
+            doc_id=f"slack_{ts}",
+            text=f"Slack from {user}: {text}",
+            metadata={"source": "slack", "user": user, "channel": data.get('channel_name')}
+        )
+        logger.info(f"✅ Indexed Slack from {user}")
+
+    def _add_vector(self, doc_id, text, metadata):
+        """Helper to upsert into ChromaDB."""
+        try:
+            vector = self.embed_model.embed_query(text)
+            self.collection.upsert(
+                ids=[doc_id],
+                embeddings=[vector],
+                documents=[text],
+                metadatas=[metadata]
+            )
+        except Exception as e:
+            logger.error(f"⚠️ Vector Error: {e}")
 
 if __name__ == "__main__":
-    print("🚀 Smart Ingestion Running...")
-    for msg in consumer:
-        if msg.topic == 'raw-jira-tickets': index_jira(msg.value)
-        elif msg.topic == 'raw-git-commits': index_git(msg.value)
-        elif msg.topic == 'raw-slack-chats': index_slack(msg.value)
+    try:
+        ingestor = KoreIngestor()
+        ingestor.run()
+    except KeyboardInterrupt:
+        print("\n🛑 Ingestor stopped.")

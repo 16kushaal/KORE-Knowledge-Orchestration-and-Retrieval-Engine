@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ===================================================
   # 1. CORE INFRASTRUCTURE (Kafka KRaft)
@@ -69,18 +67,6 @@ services:
       - "8000:8000"
     volumes:
       - chroma-data:/chroma/chroma
-
-  # UI for ChromaDB
-  chroma-ui:
-    image: fengzhichao/chromadb-admin:latest
-    container_name: chroma-ui
-    ports:
-      - "3000:3000"
-    environment:
-      # Tells the UI where Chroma is living inside the docker network
-      - CHROMADB_URL=http://chromadb:8000
-    depends_on:
-      - chromadb
 
   # --- PostgreSQL (Relational DB) ---
   postgres:
