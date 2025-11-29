@@ -8,12 +8,11 @@ import chromadb
 from dotenv import load_dotenv
 import re
 from datetime import datetime, timedelta
-from functools import lru_cache
 
 load_dotenv()
 logger = logging.getLogger("KoreTools")
 
-# --- SHARED CONNECTIONS WITH RETRY LOGIC ---
+# --- SHARED CONNECTIONS ---
 embedding_function = CohereEmbeddings(
     model="embed-english-v3.0",
     cohere_api_key=os.getenv("COHERE_API_KEY")
@@ -44,152 +43,194 @@ def get_graph_db():
             username=os.getenv('NEO4J_USER'),
             password=os.getenv('NEO4J_PASSWORD')
         )
-        # Test connection
         graph.query("RETURN 1")
         return graph
     except Exception as e:
         logger.error(f"Neo4j connection failed: {e}")
         return None
 
-# Initialize once
 vector_store = get_vector_store()
 graph_db = get_graph_db()
 
 class KoreTools:
     
-    @tool("Expert Pivot Finder")
+    @tool("Expert Finder - WHO questions")
     def find_expert_for_issue(issue_description: str):
         """
-        IMPROVED: Find WHO is responsible for a technical issue with better error handling.
-        Input: A description of the problem (e.g., "Memory leak in payments").
-        Output: A list of people (Authors, Reviewers) and the specific PRs/Tickets they worked on.
+        Find WHO worked on a specific issue/feature/bug with verified evidence.
+        
+        **USE THIS FOR:** "Who broke X?", "Who wrote Y?", "Who owns Z?"
+        
+        **Returns:** Names with specific PR/Ticket/Commit citations - NEVER guesses.
+        
+        **Example:** find_expert_for_issue("payment gateway timeout")
         """
-        logger.info(f"🔎 Expert Pivot Query: {issue_description}")
+        logger.info(f"🔎 Expert Finder: {issue_description}")
         
-        if not vector_store:
-            return "❌ Knowledge base unavailable. Cannot search for experts."
+        if not vector_store or not graph_db:
+            return "❌ System unavailable. Both graph and vector databases are required."
         
-        # 1. Vector Search: Find relevant artifacts
         try:
-            docs = vector_store.similarity_search(issue_description, k=5)  # Increased from 3
+            # Step 1: Find relevant work items via vector search
+            docs = vector_store.similarity_search(
+                issue_description, 
+                k=8,  # More results for better coverage
+                filter={"source": {"$in": ["github-pr", "jira"]}}  # Only PRs and tickets
+            )
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
             return f"⚠️ Search failed: {str(e)}"
         
         if not docs:
-            # Try a broader search with key terms
-            keywords = " ".join([w for w in issue_description.split() if len(w) > 3])
-            logger.info(f"Retrying with keywords: {keywords}")
-            try:
-                docs = vector_store.similarity_search(keywords, k=5)
-            except:
-                pass
-            
-            if not docs:
-                return f"❌ No documentation found for: '{issue_description}'. Try rephrasing or checking if the data is indexed."
-        
-        pivot_results = []
-        sources_checked = []
-        
-        # 2. Graph Pivot for each relevant document
-        for doc in docs:
-            source = doc.metadata.get("source")
-            sources_checked.append(source)
-            content_snippet = doc.page_content[:150].replace("\n", " ")
-            
-            if not graph_db:
-                # Fallback: Return vector results only
-                pivot_results.append(f"📄 Found in {source}: {content_snippet}")
-                continue
-            
-            try:
-                # For PRs - find authors and reviewers
-                if source == "github-pr":
-                    pr_id = doc.metadata.get("id")
-                    query = f"""
-                    MATCH (pr:PullRequest {{id: '{pr_id}'}})
-                    OPTIONAL MATCH (author:User)-[:OPENED]->(pr)
-                    OPTIONAL MATCH (merger:User)<-[:MERGED_BY]-(pr)
-                    OPTIONAL MATCH (pr)-[:FIXES]->(t:Ticket)
-                    RETURN 
-                        pr.title as Title,
-                        author.name as Author, 
-                        merger.name as Merger,
-                        collect(t.key) as FixedTickets
-                    LIMIT 1
-                    """
-                    data = graph_db.query(query)
-                    
-                    if data and len(data) > 0:
-                        item = data[0]
-                        result = f"🔧 **PR**: {item.get('Title', 'Unknown')}\n"
-                        if item.get('Author'):
-                            result += f"   - Author: **{item['Author']}**\n"
-                        if item.get('Merger'):
-                            result += f"   - Merged by: **{item['Merger']}**\n"
-                        if item.get('FixedTickets'):
-                            result += f"   - Fixed: {', '.join(item['FixedTickets'])}\n"
-                        pivot_results.append(result)
-                    else:
-                        pivot_results.append(f"📄 Found PR discussion: {content_snippet[:100]}...")
-                
-                # For Tickets - find who reported and who fixed
-                elif source == "jira":
-                    key = doc.metadata.get("key")
-                    query = f"""
-                    MATCH (t:Ticket {{key: '{key}'}})
-                    OPTIONAL MATCH (reporter:User)-[:REPORTED]->(t)
-                    OPTIONAL MATCH (pr:PullRequest)-[:FIXES]->(t)
-                    OPTIONAL MATCH (author:User)-[:OPENED]->(pr)
-                    OPTIONAL MATCH (t)-[:AFFECTS]->(s:Service)
-                    RETURN 
-                        t.summary as Summary,
-                        reporter.name as Reporter,
-                        collect(DISTINCT author.name) as FixedBy,
-                        collect(DISTINCT s.name) as AffectedServices
-                    LIMIT 1
-                    """
-                    data = graph_db.query(query)
-                    
-                    if data and len(data) > 0:
-                        item = data[0]
-                        result = f"🎫 **Ticket {key}**: {item.get('Summary', 'Unknown')}\n"
-                        if item.get('Reporter'):
-                            result += f"   - Reported by: **{item['Reporter']}**\n"
-                        if item.get('FixedBy') and len(item['FixedBy']) > 0:
-                            result += f"   - Fixed by: **{', '.join([f for f in item['FixedBy'] if f])}**\n"
-                        if item.get('AffectedServices'):
-                            result += f"   - Services: {', '.join(item['AffectedServices'])}\n"
-                        pivot_results.append(result)
-                    else:
-                        pivot_results.append(f"📄 Found ticket: {content_snippet[:100]}...")
-                
-                # For Slack/Commits - just show the content
-                else:
-                    pivot_results.append(f"💬 Discussion: {content_snippet}")
-            
-            except Exception as e:
-                logger.error(f"Graph query error for {source}: {e}")
-                # Don't fail completely - add what we found
-                pivot_results.append(f"⚠️ Found {source} but couldn't get details: {content_snippet[:80]}...")
-        
-        if not pivot_results:
             return (
-                f"🔍 I searched through {len(docs)} documents ({', '.join(set(sources_checked))}) "
-                f"but couldn't link them to specific people in the graph. "
-                f"The knowledge base might need more data."
+                f"❌ NO RESULTS FOUND\n\n"
+                f"I searched the knowledge base for '{issue_description}' but found no PRs or tickets. "
+                f"This could mean:\n"
+                f"- The issue hasn't been worked on yet\n"
+                f"- Different terminology is used (try rephrasing)\n"
+                f"- The data isn't indexed\n\n"
+                f"**I cannot guess who worked on this without evidence.**"
             )
         
-        # Deduplicate and format
-        unique_results = list(dict.fromkeys(pivot_results))
-        return "\n\n".join(unique_results)
+        # Step 2: For each relevant item, get precise people data from graph
+        findings = []
+        people_mentioned = set()
+        
+        for doc in docs:
+            source = doc.metadata.get("source")
+            
+            try:
+                if source == "github-pr":
+                    pr_id = doc.metadata.get("id")
+                    pr_number = doc.metadata.get("number")
+                    
+                    # Get exact PR data from graph
+                    query = """
+                    MATCH (pr:PullRequest {id: $pr_id})
+                    OPTIONAL MATCH (author:User)-[:OPENED]->(pr)
+                    OPTIONAL MATCH (merger:User)-[:MERGED]->(pr)
+                    OPTIONAL MATCH (pr)-[:FIXES]->(t:Ticket)
+                    RETURN 
+                        pr.title as title,
+                        pr.state as state,
+                        pr.url as url,
+                        author.name as author,
+                        merger.name as merger,
+                        collect(t.key) as fixed_tickets
+                    LIMIT 1
+                    """
+                    
+                    result = graph_db.query(query, params={"pr_id": pr_id})
+                    
+                    if result and len(result) > 0:
+                        item = result[0]
+                        author = item.get('author')
+                        merger = item.get('merger')
+                        title = item.get('title', 'Unknown')
+                        state = item.get('state', 'unknown')
+                        url = item.get('url', '')
+                        
+                        finding = f"**PR #{pr_number}** ({state}): {title[:60]}\n"
+                        
+                        if author:
+                            finding += f"  👤 **Author:** {author}\n"
+                            people_mentioned.add(author)
+                        
+                        if merger and merger != author:
+                            finding += f"  ✅ **Merged by:** {merger}\n"
+                            people_mentioned.add(merger)
+                        
+                        if item.get('fixed_tickets'):
+                            finding += f"  🎫 Fixed: {', '.join(item['fixed_tickets'])}\n"
+                        
+                        if url:
+                            finding += f"  🔗 {url}\n"
+                        
+                        findings.append(finding)
+                
+                elif source == "jira":
+                    key = doc.metadata.get("key")
+                    
+                    # Get exact ticket data from graph
+                    query = """
+                    MATCH (t:Ticket {key: $key})
+                    OPTIONAL MATCH (reporter:User)-[:REPORTED]->(t)
+                    OPTIONAL MATCH (pr:PullRequest)-[:FIXES]->(t)
+                    OPTIONAL MATCH (fixer:User)-[:OPENED]->(pr)
+                    OPTIONAL MATCH (t)-[:AFFECTS]->(s:Service)
+                    RETURN 
+                        t.summary as summary,
+                        t.status as status,
+                        t.priority as priority,
+                        reporter.name as reporter,
+                        collect(DISTINCT fixer.name) as fixers,
+                        collect(DISTINCT s.name) as services,
+                        collect(DISTINCT pr.number) as pr_numbers
+                    LIMIT 1
+                    """
+                    
+                    result = graph_db.query(query, params={"key": key})
+                    
+                    if result and len(result) > 0:
+                        item = result[0]
+                        summary = item.get('summary', 'Unknown')
+                        status = item.get('status', 'unknown')
+                        priority = item.get('priority', 'unknown')
+                        
+                        finding = f"**{key}** ({priority}, {status}): {summary[:60]}\n"
+                        
+                        reporter = item.get('reporter')
+                        if reporter:
+                            finding += f"  📢 **Reported by:** {reporter}\n"
+                            people_mentioned.add(reporter)
+                        
+                        fixers = [f for f in item.get('fixers', []) if f]
+                        if fixers:
+                            finding += f"  🔧 **Fixed by:** {', '.join(fixers)}\n"
+                            people_mentioned.update(fixers)
+                        
+                        services = item.get('services', [])
+                        if services:
+                            finding += f"  ⚙️ Affected: {', '.join(services)}\n"
+                        
+                        pr_numbers = [str(p) for p in item.get('pr_numbers', []) if p]
+                        if pr_numbers:
+                            finding += f"  🔗 PRs: #{', #'.join(pr_numbers)}\n"
+                        
+                        findings.append(finding)
+            
+            except Exception as e:
+                logger.error(f"Graph query error: {e}")
+                continue
+        
+        # Build response
+        if not findings:
+            return (
+                f"⚠️ PARTIAL RESULTS\n\n"
+                f"I found {len(docs)} potentially relevant items but couldn't extract people data from the graph. "
+                f"The connections might be incomplete."
+            )
+        
+        response = f"🔍 **Found {len(findings)} verified work items related to '{issue_description}'**\n\n"
+        response += "\n".join(findings)
+        
+        if people_mentioned:
+            response += f"\n\n👥 **People involved:** {', '.join(sorted(people_mentioned))}"
+        
+        response += "\n\n✅ **All information above is verified from the knowledge graph.**"
+        
+        return response
 
-    @tool("General Knowledge Search")
-    def search_documents(query: str):
+    @tool("Document Search - WHAT/HOW questions")
+    def search_documents(query: str, limit: int = 5):
         """
-        IMPROVED: Search with better fallback and context.
-        Input: A search query.
-        Output: Snippets of relevant documents with source attribution.
+        Search for documents, policies, discussions about a topic.
+        
+        **USE THIS FOR:** "What is X?", "How does Y work?", "What's the policy on Z?"
+        
+        **Returns:** Relevant document excerpts with sources.
+        
+        **Example:** search_documents("deployment freeze policy")
         """
         logger.info(f"📖 Document Search: {query}")
         
@@ -197,203 +238,369 @@ class KoreTools:
             return "❌ Knowledge base unavailable."
         
         try:
-            results = vector_store.similarity_search(query, k=5)  # Increased from 3
+            results = vector_store.similarity_search(query, k=limit)
         except Exception as e:
             logger.error(f"Search failed: {e}")
             return f"⚠️ Search error: {str(e)}"
         
         if not results:
-            return f"❌ No documents found for '{query}'. The knowledge base might not have this information yet."
+            # Try with relaxed filtering
+            keywords = " ".join([w for w in query.split() if len(w) > 3][:5])
+            try:
+                results = vector_store.similarity_search(keywords, k=limit)
+            except:
+                pass
+            
+            if not results:
+                return (
+                    f"❌ NO DOCUMENTS FOUND\n\n"
+                    f"No documents match '{query}'. Try:\n"
+                    f"- Using different keywords\n"
+                    f"- Making the query more general\n"
+                    f"- Checking if this information exists in the system"
+                )
         
-        formatted = []
+        formatted = [f"📚 **Found {len(results)} relevant documents:**\n"]
+        
         for i, doc in enumerate(results, 1):
             source = doc.metadata.get('source', 'unknown')
             content = doc.page_content.strip()
             
             # Truncate long content
-            if len(content) > 300:
-                content = content[:297] + "..."
+            if len(content) > 400:
+                content = content[:397] + "..."
             
-            # Add metadata context
-            metadata_str = ""
-            if source == "github-pr":
+            # Add context based on source
+            header = f"**[{i}] "
+            
+            if source == "policy-doc":
+                policy_id = doc.metadata.get('policy_id', '')
+                title = doc.metadata.get('title', '')
+                header += f"POLICY {policy_id}**: {title}"
+            elif source == "github-pr":
+                pr_num = doc.metadata.get('number', '')
                 author = doc.metadata.get('author', 'Unknown')
-                metadata_str = f" (by {author})"
+                header += f"PR #{pr_num}** by {author}"
             elif source == "jira":
                 key = doc.metadata.get('key', '')
-                metadata_str = f" ({key})"
+                priority = doc.metadata.get('priority', '')
+                header += f"TICKET {key}** ({priority})"
+            elif source == "slack":
+                channel = doc.metadata.get('channel', 'unknown')
+                header += f"SLACK #{channel}**"
+            else:
+                header += f"{source.upper()}**"
             
-            formatted.append(f"**[{i}] {source.upper()}{metadata_str}**\n{content}")
+            formatted.append(f"{header}\n{content}\n")
         
-        return "\n\n".join(formatted)
+        return "\n".join(formatted)
     
-    @tool("Recent Activity Finder")
-    def search_recent_activity(timeframe_hours: int = 24):
+    @tool("Recent Changes Tracker - Timeline questions")
+    def search_recent_activity(hours_back: int = 24):
         """
-        NEW: Find recent changes that might be related to an incident.
-        Input: Number of hours to look back (default: 24)
-        Output: Recent PRs, commits, and tickets
+        Find what changed recently - useful for incident investigation.
+        
+        **USE THIS FOR:** "What changed recently?", "Recent PRs", "Latest commits"
+        
+        **Returns:** Chronological list of recent PRs, commits, tickets.
+        
+        **Example:** search_recent_activity(hours_back=12)
         """
-        logger.info(f"⏱️ Searching activity from last {timeframe_hours}h")
+        logger.info(f"⏱️ Recent Activity: last {hours_back}h")
         
         if not graph_db:
             return "❌ Graph database unavailable."
         
         try:
-            # Get recent PRs and commits
+            # Get recent PRs
             query = """
-            MATCH (u:User)-[r]->(item)
-            WHERE item:PullRequest OR item:Commit
+            MATCH (pr:PullRequest)
+            WHERE pr.updated_at IS NOT NULL
+            WITH pr, datetime(pr.updated_at) as updated
+            WHERE updated > datetime() - duration({hours: $hours})
+            MATCH (author:User)-[:OPENED]->(pr)
+            OPTIONAL MATCH (merger:User)-[:MERGED]->(pr)
             RETURN 
-                labels(item)[0] as Type,
-                item.title as Title,
-                item.message as Message,
-                u.name as Person,
-                type(r) as Action
-            ORDER BY item.created_at DESC
+                'PR' as type,
+                pr.number as number,
+                pr.title as title,
+                pr.state as state,
+                pr.merged as merged,
+                author.name as person,
+                merger.name as merger,
+                pr.updated_at as timestamp
+            ORDER BY timestamp DESC
+            LIMIT 15
+            """
+            
+            pr_data = graph_db.query(query, params={"hours": hours_back})
+            
+            # Get recent tickets
+            ticket_query = """
+            MATCH (t:Ticket)
+            WHERE t.updated IS NOT NULL
+            WITH t, datetime(t.updated) as updated
+            WHERE updated > datetime() - duration({hours: $hours})
+            MATCH (reporter:User)-[:REPORTED]->(t)
+            RETURN 
+                'TICKET' as type,
+                t.key as key,
+                t.summary as summary,
+                t.status as status,
+                t.priority as priority,
+                reporter.name as person,
+                t.updated as timestamp
+            ORDER BY timestamp DESC
             LIMIT 10
             """
-            data = graph_db.query(query)
             
-            if not data:
-                return "No recent activity found in graph."
+            ticket_data = graph_db.query(ticket_query, params={"hours": hours_back})
             
-            results = []
-            for item in data:
-                item_type = item.get('Type', 'Unknown')
-                person = item.get('Person', 'Unknown')
-                action = item.get('Action', 'worked on')
-                title = item.get('Title') or item.get('Message', 'No description')
-                
-                results.append(f"- **{person}** {action} {item_type}: {title[:80]}")
+            if not pr_data and not ticket_data:
+                return f"📭 No activity found in the last {hours_back} hours."
             
-            return "🕐 **Recent Activity:**\n" + "\n".join(results)
+            results = [f"🕐 **Recent Activity (last {hours_back}h):**\n"]
+            
+            # Format PRs
+            if pr_data:
+                results.append("**Pull Requests:**")
+                for item in pr_data:
+                    pr_num = item['number']
+                    title = item['title'][:60]
+                    state = item['state']
+                    person = item['person']
+                    merged = item.get('merged', False)
+                    merger = item.get('merger')
+                    
+                    status_emoji = "✅" if merged else ("🚫" if state == "closed" else "🔄")
+                    
+                    line = f"{status_emoji} **PR #{pr_num}** by {person}: {title}"
+                    if merged and merger and merger != person:
+                        line += f" (merged by {merger})"
+                    
+                    results.append(line)
+            
+            # Format Tickets
+            if ticket_data:
+                results.append("\n**Tickets:**")
+                for item in ticket_data:
+                    key = item['key']
+                    summary = item['summary'][:60]
+                    status = item['status']
+                    priority = item['priority']
+                    person = item['person']
+                    
+                    priority_emoji = "🚨" if "P0" in priority else ("⚠️" if "P1" in priority else "📋")
+                    
+                    results.append(f"{priority_emoji} **{key}** ({status}) by {person}: {summary}")
+            
+            return "\n".join(results)
         
         except Exception as e:
-            logger.error(f"Recent activity search failed: {e}")
-            return f"⚠️ Could not fetch recent activity: {str(e)}"
+            logger.error(f"Recent activity query failed: {e}")
+            return f"⚠️ Could not retrieve recent activity: {str(e)}"
     
-    @tool("Policy Compliance Checker")
+    @tool("PR State Checker")
+    def check_pr_state(pr_identifier: str):
+        """
+        Check the current state of a specific PR.
+        
+        **USE THIS FOR:** "Is PR #505 merged?", "What's the status of PR 123?"
+        
+        **Returns:** Current PR state with details.
+        
+        **Example:** check_pr_state("505") or check_pr_state("kore-payments-PR-505")
+        """
+        logger.info(f"🔍 Checking PR: {pr_identifier}")
+        
+        if not graph_db:
+            return "❌ Graph database unavailable."
+        
+        # Try to extract PR number
+        pr_num_match = re.search(r'(\d+)', pr_identifier)
+        if not pr_num_match:
+            return "⚠️ Could not parse PR number. Use format: '505' or '#505' or 'PR-505'"
+        
+        pr_number = pr_num_match.group(1)
+        
+        try:
+            query = """
+            MATCH (pr:PullRequest)
+            WHERE pr.number = $pr_number
+            MATCH (author:User)-[:OPENED]->(pr)
+            OPTIONAL MATCH (merger:User)-[:MERGED]->(pr)
+            OPTIONAL MATCH (pr)-[:FIXES]->(t:Ticket)
+            OPTIONAL MATCH (pr)-[:BELONGS_TO]->(r:Repository)
+            RETURN 
+                pr.number as number,
+                pr.title as title,
+                pr.state as state,
+                pr.merged as merged,
+                pr.created_at as created,
+                pr.updated_at as updated,
+                pr.closed_at as closed,
+                pr.url as url,
+                author.name as author,
+                merger.name as merger,
+                r.name as repo,
+                collect(t.key) as fixed_tickets
+            LIMIT 1
+            """
+            
+            result = graph_db.query(query, params={"pr_number": int(pr_number)})
+            
+            if not result or len(result) == 0:
+                return f"❌ PR #{pr_number} not found in knowledge base."
+            
+            pr = result[0]
+            
+            response = f"**PR #{pr['number']}** in {pr.get('repo', 'unknown repo')}\n\n"
+            response += f"**Title:** {pr['title']}\n"
+            response += f"**State:** {pr['state']}\n"
+            response += f"**Author:** {pr['author']}\n"
+            
+            if pr['merged']:
+                response += f"**Status:** ✅ MERGED"
+                if pr.get('merger'):
+                    response += f" by {pr['merger']}"
+                response += "\n"
+                if pr.get('closed'):
+                    response += f"**Merged at:** {pr['closed']}\n"
+            elif pr['state'] == 'closed':
+                response += "**Status:** 🚫 CLOSED WITHOUT MERGE\n"
+            else:
+                response += "**Status:** 🔄 OPEN\n"
+            
+            if pr.get('fixed_tickets'):
+                response += f"**Fixes:** {', '.join(pr['fixed_tickets'])}\n"
+            
+            if pr.get('url'):
+                response += f"\n🔗 {pr['url']}"
+            
+            return response
+        
+        except Exception as e:
+            logger.error(f"PR state check failed: {e}")
+            return f"⚠️ Error checking PR: {str(e)}"
+    
+    @tool("Ticket State Checker")
+    def check_ticket_state(ticket_key: str):
+        """
+        Check the current state of a Jira ticket.
+        
+        **USE THIS FOR:** "Is INC-2024 resolved?", "What's the status of SEC-3001?"
+        
+        **Returns:** Current ticket state with resolution details.
+        
+        **Example:** check_ticket_state("INC-2024")
+        """
+        logger.info(f"🔍 Checking Ticket: {ticket_key}")
+        
+        if not graph_db:
+            return "❌ Graph database unavailable."
+        
+        # Normalize ticket key
+        ticket_key = ticket_key.upper().strip()
+        
+        try:
+            query = """
+            MATCH (t:Ticket {key: $key})
+            OPTIONAL MATCH (reporter:User)-[:REPORTED]->(t)
+            OPTIONAL MATCH (pr:PullRequest)-[:FIXES]->(t)
+            OPTIONAL MATCH (fixer:User)-[:OPENED]->(pr)
+            OPTIONAL MATCH (t)-[:AFFECTS]->(s:Service)
+            RETURN 
+                t.key as key,
+                t.summary as summary,
+                t.status as status,
+                t.priority as priority,
+                t.resolution as resolution,
+                t.created as created,
+                t.updated as updated,
+                t.resolved_date as resolved,
+                reporter.name as reporter,
+                collect(DISTINCT fixer.name) as fixers,
+                collect(DISTINCT s.name) as services,
+                collect(DISTINCT pr.number) as pr_numbers
+            LIMIT 1
+            """
+            
+            result = graph_db.query(query, params={"key": ticket_key})
+            
+            if not result or len(result) == 0:
+                return f"❌ Ticket {ticket_key} not found in knowledge base."
+            
+            ticket = result[0]
+            
+            response = f"**{ticket['key']}** ({ticket['priority']})\n\n"
+            response += f"**Summary:** {ticket['summary']}\n"
+            response += f"**Status:** {ticket['status']}\n"
+            response += f"**Reported by:** {ticket['reporter']}\n"
+            
+            if ticket['status'] in ['Resolved', 'Done', 'Closed']:
+                response += f"**Resolution:** {ticket.get('resolution', 'Unknown')}\n"
+                if ticket.get('resolved'):
+                    response += f"**Resolved at:** {ticket['resolved']}\n"
+            
+            services = [s for s in ticket['services'] if s]
+            if services:
+                response += f"**Affected services:** {', '.join(services)}\n"
+            
+            fixers = [f for f in ticket['fixers'] if f]
+            if fixers:
+                response += f"**Fixed by:** {', '.join(set(fixers))}\n"
+            
+            pr_numbers = [str(p) for p in ticket['pr_numbers'] if p]
+            if pr_numbers:
+                response += f"**Related PRs:** #{', #'.join(pr_numbers)}\n"
+            
+            return response
+        
+        except Exception as e:
+            logger.error(f"Ticket check failed: {e}")
+            return f"⚠️ Error checking ticket: {str(e)}"
+    
+    @tool("Compliance Checker")
     def check_compliance(text: str):
         """
-        IMPROVED: Better secret detection with fewer false positives.
-        Analyzes text for security violations using patterns.
+        Check text for security violations (hardcoded secrets, risky patterns).
+        
+        **Returns:** PASS/WARNING/FAIL with specific policy violations.
+        
+        **Example:** check_compliance("AWS_KEY=AKIA1234567890ABCDEF")
         """
         violations = []
         warnings = []
         
-        # 1. AWS Access Key ID (Starts with AKIA, 20 chars)
-        aws_keys = re.findall(r'AKIA[0-9A-Z]{16}', text)
-        if aws_keys:
-            violations.append(f"🚨 **CRITICAL**: AWS Access Key detected: {aws_keys[0][:8]}... (Policy: SEC-102)")
+        # AWS Keys
+        if re.search(r'AKIA[0-9A-Z]{16}', text):
+            violations.append("🚨 AWS Access Key detected (Policy: SEC-102)")
         
-        # 2. Generic API key patterns (but avoid false positives)
-        # Look for actual assignment, not just the word "api_key"
+        # Generic secrets with assignment
         secret_pattern = r'(api_key|apikey|secret|password|token)\s*[:=]\s*["\']([^"\']{8,})["\']'
         matches = re.findall(secret_pattern, text, re.IGNORECASE)
-        if matches:
-            for key_type, value in matches:
-                # Skip placeholders
-                if value.lower() not in ['your_key_here', 'xxx', 'placeholder', 'example']:
-                    violations.append(f"⚠️ Hardcoded {key_type.upper()} detected: {value[:10]}... (Policy: SEC-102)")
+        for key_type, value in matches:
+            if value.lower() not in ['your_key_here', 'xxx', 'placeholder', 'example', 'changeme', 'test']:
+                violations.append(f"⚠️ Hardcoded {key_type.upper()} (Policy: SEC-102)")
         
-        # 3. Private Keys
+        # Private Keys
         if "BEGIN PRIVATE KEY" in text or "BEGIN RSA PRIVATE KEY" in text:
-            violations.append("🚨 **CRITICAL**: RSA Private Key detected (Policy: SEC-102)")
+            violations.append("🚨 RSA Private Key detected (Policy: SEC-102)")
         
-        # 4. Check for TODO/FIXME in production code (warning only)
-        if re.search(r'(TODO|FIXME|HACK):', text, re.IGNORECASE):
-            warnings.append("💡 Contains TODO/FIXME comments - might need cleanup before merge")
-        
-        # 5. Suspicious patterns
-        if re.search(r'DROP TABLE|DELETE FROM.*WHERE 1=1', text, re.IGNORECASE):
-            warnings.append("⚠️ Potentially dangerous SQL detected")
+        # Risky patterns
+        risky_words = ['hotfix', 'quickfix', 'hack', 'temporary', 'bypass', 'disable', 'skip']
+        found_risky = [w for w in risky_words if w in text.lower()]
+        if found_risky:
+            warnings.append(f"💡 Risky keywords: {', '.join(found_risky)}")
         
         # Build report
         if violations:
-            report = f"❌ **FAIL**: Found {len(violations)} violation(s)\n\n"
+            report = f"❌ **COMPLIANCE FAIL**: {len(violations)} violation(s)\n\n"
             report += "\n".join(f"{i+1}. {v}" for i, v in enumerate(violations))
             if warnings:
-                report += "\n\n**Warnings:**\n" + "\n".join(f"- {w}" for w in warnings)
+                report += "\n\n**Additional warnings:**\n" + "\n".join(f"- {w}" for w in warnings)
             return report
         elif warnings:
-            return "⚠️ **WARNING**:\n" + "\n".join(f"- {w}" for w in warnings)
+            return "⚠️ **WARNING**:\n" + "\n".join(f"- {w}" for w in warnings) + "\n\nNo critical violations."
         else:
             return "✅ **PASS**: No compliance issues detected."
-    
-    @tool("Timing Policy Checker")
-    def check_timing_policy(action: str, timestamp: str = None):
-        """
-        NEW: Check if an action violates time-based policies (e.g., Friday deploy freeze).
-        Input: action description and optional ISO timestamp
-        Output: PASS/FAIL with policy citation
-        """
-        logger.info(f"🕐 Checking timing for: {action}")
-        
-        # Parse timestamp
-        try:
-            if timestamp:
-                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-            else:
-                dt = datetime.now()
-        except:
-            return "⚠️ Could not parse timestamp, assuming current time"
-        
-        violations = []
-        
-        # Check Friday after 2 PM
-        if dt.weekday() == 4:  # Friday
-            if dt.hour >= 14:  # After 2 PM
-                if any(keyword in action.lower() for keyword in ['deploy', 'merge', 'production', 'release']):
-                    violations.append(
-                        "🚨 **POLICY VIOLATION**: Friday deployment after 2 PM EST "
-                        "(Policy: POL-001 - Deployment Freeze)"
-                    )
-        
-        # Check weekend deploys
-        if dt.weekday() in [5, 6]:  # Saturday or Sunday
-            if any(keyword in action.lower() for keyword in ['deploy', 'production']):
-                violations.append(
-                    "⚠️ **WARNING**: Weekend deployment detected. "
-                    "Ensure on-call coverage (Policy: POL-001)"
-                )
-        
-        if violations:
-            return "❌ **TIMING VIOLATION**:\n" + "\n".join(violations)
-        else:
-            return "✅ Timing check passed"
-    
-    @tool("Incident History Search")
-    def search_incident_history(query: str):
-        """
-        NEW: Search for similar past incidents to learn from history.
-        Input: Incident description
-        Output: Similar past incidents and their resolutions
-        """
-        logger.info(f"📚 Searching incident history: {query}")
-        
-        if not vector_store:
-            return "❌ History unavailable"
-        
-        try:
-            # Search for past incidents
-            results = vector_store.similarity_search(
-                query, 
-                k=3,
-                filter={"source": "jira"}  # Only search tickets
-            )
-            
-            if not results:
-                return "No similar past incidents found in history."
-            
-            formatted = ["📚 **Similar Past Incidents:**\n"]
-            for i, doc in enumerate(results, 1):
-                key = doc.metadata.get('key', 'Unknown')
-                content = doc.page_content[:200]
-                formatted.append(f"{i}. **{key}**: {content}...")
-            
-            return "\n\n".join(formatted)
-        
-        except Exception as e:
-            logger.error(f"History search failed: {e}")
-            return f"⚠️ Could not search history: {str(e)}"

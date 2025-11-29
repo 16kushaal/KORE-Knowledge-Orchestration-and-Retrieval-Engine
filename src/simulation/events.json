@@ -9,9 +9,12 @@
         "title": "Quick fix for timeout issue",
         "body": "Running late but needed to fix the timeout. Hardcoded the AWS_ACCESS_KEY_ID='AKIA_TEST_1234' temporarily. Will move to env vars on Monday.",
         "user": { "login": "Bob Smith" },
+        "state": "open",
+        "merged": false,
         "merged_by": null,
         "requested_reviewers": [{ "login": "Alice Chen" }],
-        "created_at": "AUTO_ISO_TIME"
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
       },
       "repository": { "name": "kore-payments" }
     }
@@ -36,7 +39,7 @@
       "username": "Datadog Bot",
       "channel": "C-INC",
       "channel_name": "incidents",
-      "text": "CRITICAL: PaymentGateway latency > 10s. Error Rate 100%.",
+      "text": "🚨 CRITICAL: PaymentGateway latency > 10s. Error Rate 100%. Affected endpoints: /checkout, /payment/process",
       "ts": "AUTO_UNIX_TIME"
     }
   },
@@ -74,9 +77,11 @@
         "key": "INC-2024",
         "fields": {
           "summary": "Production Down: Payment Gateway Outage",
-          "description": "Full outage on checkout. Suspected bad deploy.",
+          "description": "Full outage on checkout. Suspected bad deploy. Customers reporting 500 errors.",
           "status": { "name": "Open" },
-          "priority": { "name": "P0-Critical" }
+          "priority": { "name": "P0-Critical" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
         }
       }
     }
@@ -88,10 +93,14 @@
       "commit": {
         "id": "abc123-timeout-hotfix",
         "message": "Quick hotfix for timeout, bypassing retry logic for now",
-        "author": { "name": "Bob Smith" },
-        "timestamp": "AUTO_ISO_TIME"
+        "author": { "name": "Bob Smith", "email": "bob@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "added": ["src/payments/retry.py"],
+        "modified": ["src/payments/gateway.py"],
+        "removed": []
       },
-      "repository": { "name": "kore-payments" }
+      "repository": { "name": "kore-payments" },
+      "ref": "refs/heads/main"
     }
   },
   {
@@ -130,7 +139,8 @@
           "summary": "Production Down: Payment Gateway Outage",
           "description": "Rollback in progress. Root cause suspected: bad commit bypassing retry logic.",
           "status": { "name": "Investigating" },
-          "priority": { "name": "P0-Critical" }
+          "priority": { "name": "P0-Critical" },
+          "updated": "AUTO_ISO_TIME"
         }
       }
     }
@@ -148,6 +158,22 @@
     }
   },
   {
+    "topic": "raw-git-commits",
+    "delay": 28,
+    "data": {
+      "commit": {
+        "id": "def456-revert-hotfix",
+        "message": "Revert 'Quick hotfix for timeout' - caused production outage",
+        "author": { "name": "John Doe", "email": "john@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "modified": ["src/payments/gateway.py", "src/payments/retry.py"],
+        "reverts": "abc123-timeout-hotfix"
+      },
+      "repository": { "name": "kore-payments" },
+      "ref": "refs/heads/main"
+    }
+  },
+  {
     "topic": "raw-slack-chats",
     "delay": 30,
     "data": {
@@ -155,8 +181,26 @@
       "username": "Datadog Bot",
       "channel": "C-INC",
       "channel_name": "incidents",
-      "text": "Recovery underway: latency returning to normal. Error rate dropping.",
+      "text": "✅ Recovery underway: latency returning to normal. Error rate dropping to 5%.",
       "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 35,
+    "data": {
+      "action": "closed",
+      "pull_request": {
+        "number": 505,
+        "title": "Quick fix for timeout issue",
+        "body": "Running late but needed to fix the timeout. Hardcoded the AWS_ACCESS_KEY_ID='AKIA_TEST_1234' temporarily. Will move to env vars on Monday.",
+        "user": { "login": "Bob Smith" },
+        "state": "closed",
+        "merged": false,
+        "closed_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
     }
   },
   {
@@ -168,10 +212,13 @@
       "issue": {
         "key": "INC-2024",
         "fields": {
-          "summary": "Production Back Up",
+          "summary": "Production Down: Payment Gateway Outage - RESOLVED",
           "description": "Rollback complete. Production healthy. Root cause: unsafe Friday commit with hardcoded key and disabled safety logic.",
           "status": { "name": "Resolved" },
-          "priority": { "name": "P0-Critical" }
+          "priority": { "name": "P0-Critical" },
+          "resolution": { "name": "Fixed" },
+          "resolutiondate": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
         }
       }
     }
@@ -184,11 +231,14 @@
       "pull_request": {
         "number": 506,
         "title": "Security: Rotate Compromised AWS Keys",
-        "body": "Detected leaked AWS Key AKIA_TEST_1234 in previous PR #505. Rotating keys and scrubbing git history.",
+        "body": "Detected leaked AWS Key AKIA_TEST_1234 in previous PR #505. Rotating keys and scrubbing git history. Fixes SEC-3001.",
         "user": { "login": "Diana Prince" },
+        "state": "open",
+        "merged": false,
         "merged_by": null,
-        "requested_reviewers": [{ "login": "Bob Smith" }],
-        "created_at": "AUTO_ISO_TIME"
+        "requested_reviewers": [{ "login": "Alice Chen" }, { "login": "Bob Smith" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
       },
       "repository": { "name": "kore-payments" }
     }
@@ -215,9 +265,11 @@
         "key": "SEC-3001",
         "fields": {
           "summary": "Credential Leak in Payment Gateway",
-          "description": "AWS Access Key leaked in PR-505. Keys must be rotated immediately per Policy SEC-102.",
+          "description": "AWS Access Key leaked in PR-505. Keys must be rotated immediately per Policy SEC-102. This violates our secret management standard.",
           "status": { "name": "Open" },
-          "priority": { "name": "P1-High" }
+          "priority": { "name": "P1-High" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
         }
       }
     }
@@ -229,8 +281,29 @@
       "commit": {
         "id": "sec-scrub-999",
         "message": "Scrubbing secrets from history [skip ci]",
-        "author": { "name": "Diana Prince" },
-        "timestamp": "AUTO_ISO_TIME"
+        "author": { "name": "Diana Prince", "email": "diana@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "modified": [".git-history-filter", "scripts/rotate-keys.sh"]
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 63,
+    "data": {
+      "action": "closed",
+      "pull_request": {
+        "number": 506,
+        "title": "Security: Rotate Compromised AWS Keys",
+        "body": "Detected leaked AWS Key AKIA_TEST_1234 in previous PR #505. Rotating keys and scrubbing git history. Fixes SEC-3001.",
+        "user": { "login": "Diana Prince" },
+        "state": "closed",
+        "merged": true,
+        "merged_by": { "login": "Alice Chen" },
+        "closed_at": "AUTO_ISO_TIME",
+        "merged_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
       },
       "repository": { "name": "kore-payments" }
     }
@@ -244,10 +317,189 @@
       "issue": {
         "key": "SEC-3001",
         "fields": {
-          "summary": "Credential Leak in Payment Gateway",
-          "description": "Keys rotated. History scrubbed. Incident closed.",
+          "summary": "Credential Leak in Payment Gateway - RESOLVED",
+          "description": "Keys rotated. History scrubbed. Incident closed. Post-mortem scheduled.",
           "status": { "name": "Resolved" },
-          "priority": { "name": "P1-High" }
+          "priority": { "name": "P1-High" },
+          "resolution": { "name": "Fixed" },
+          "resolutiondate": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 70,
+    "data": {
+      "user": "U-Alice",
+      "username": "Alice Chen",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Team reminder: NO Friday deploys after 2 PM per POL-001. We just had a major outage from this. Let's follow the process.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 80,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 507,
+        "title": "Add database migration for user preferences",
+        "body": "Adding new columns to users table: preferences JSONB, last_login TIMESTAMP. Migration is backward compatible with DEFAULT values.",
+        "user": { "login": "Alice Chen" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "John Doe" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 85,
+    "data": {
+      "user": "U-Alice",
+      "username": "Alice Chen",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Opened PR #507 for user preferences feature. Follows DB-500 policy - backward compatible migration with defaults.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 90,
+    "data": {
+      "action": "review_requested",
+      "pull_request": {
+        "number": 507,
+        "state": "open"
+      },
+      "requested_reviewer": { "login": "John Doe" },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 95,
+    "data": {
+      "user": "U-SRE-John",
+      "username": "John Doe",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Reviewed PR #507. Migration looks good, tested on staging with 1M rows - no performance issues. Approving.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 100,
+    "data": {
+      "action": "closed",
+      "pull_request": {
+        "number": 507,
+        "title": "Add database migration for user preferences",
+        "user": { "login": "Alice Chen" },
+        "state": "closed",
+        "merged": true,
+        "merged_by": { "login": "John Doe" },
+        "closed_at": "AUTO_ISO_TIME",
+        "merged_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 110,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Eve Polastri" },
+      "issue": {
+        "key": "FEAT-1001",
+        "fields": {
+          "summary": "User Preferences Dashboard",
+          "description": "Allow users to customize their dashboard layout and notification settings. Backend ready (PR #507 merged).",
+          "status": { "name": "In Progress" },
+          "priority": { "name": "P2-Medium" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 120,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 301,
+        "title": "Frontend: User preferences UI",
+        "body": "React component for user preferences. Connects to new backend API. Fixes FEAT-1001.",
+        "user": { "login": "Eve Polastri" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Alice Chen" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-frontend" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 130,
+    "data": {
+      "user": "BOT",
+      "username": "CI Bot",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "✅ PR #301 (kore-frontend) - All checks passed: Tests (12/12), Lint (0 issues), Bundle size OK",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 140,
+    "data": {
+      "action": "closed",
+      "pull_request": {
+        "number": 301,
+        "title": "Frontend: User preferences UI",
+        "user": { "login": "Eve Polastri" },
+        "state": "closed",
+        "merged": true,
+        "merged_by": { "login": "Alice Chen" },
+        "closed_at": "AUTO_ISO_TIME",
+        "merged_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-frontend" }
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 145,
+    "data": {
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "Eve Polastri" },
+      "issue": {
+        "key": "FEAT-1001",
+        "fields": {
+          "summary": "User Preferences Dashboard - COMPLETE",
+          "description": "Feature shipped. Frontend PR #301 merged. Backend PR #507 already in production.",
+          "status": { "name": "Done" },
+          "priority": { "name": "P2-Medium" },
+          "resolution": { "name": "Done" },
+          "resolutiondate": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
         }
       }
     }

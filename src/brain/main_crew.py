@@ -6,8 +6,8 @@ from src.brain.agents import KoreAgents
 from crewai import Task, Crew, Process
 from dotenv import load_dotenv
 import time
+from collections import deque
 
-# --- CONFIG ---
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(message)s')
 logger = logging.getLogger("KoreInteractive")
@@ -18,11 +18,12 @@ class InteractiveBrain:
     def __init__(self):
         self._setup_kafka()
         self.agents = KoreAgents()
-        self.query_cache = {}  # Simple cache for repeated queries
+        self.query_cache = {}
         self.processing_count = 0
+        self.conversation_contexts = {}
 
     def _setup_kafka(self):
-        """Initialize Producer and Consumer with better error handling."""
+        """Initialize Producer and Consumer"""
         logger.info(f"🧠 KORE Interactive Brain connecting to {KAFKA_BROKER}...")
         
         try:
@@ -31,143 +32,214 @@ class InteractiveBrain:
                 bootstrap_servers=KAFKA_BROKER,
                 value_deserializer=lambda x: json.loads(x.decode('utf-8')),
                 auto_offset_reset='latest',
-                group_id='kore-interactive-v2',
-                consumer_timeout_ms=1000  # Don't block forever
+                group_id='kore-interactive-v4',
+                consumer_timeout_ms=1000
             )
             self.producer = KafkaProducer(
                 bootstrap_servers=KAFKA_BROKER,
                 value_serializer=lambda v: json.dumps(v).encode('utf-8')
             )
-            logger.info("✅ Kafka connected successfully")
+            logger.info("✅ Kafka connected")
+            logger.info("🎯 Using improved tools with anti-hallucination")
         except Exception as e:
             logger.error(f"❌ Kafka connection failed: {e}")
             raise
 
     def detect_query_type(self, query: str) -> dict:
-        """
-        NEW: Analyze query to optimize agent selection.
-        Returns: {'type': 'who'|'what'|'policy'|'incident', 'needs_graph': bool}
-        """
+        """Analyze query to select the right tool"""
         query_lower = query.lower()
         
-        # WHO questions - definitely need graph
-        if any(word in query_lower for word in ['who', 'author', 'blame', 'responsible', 'wrote', 'merged']):
-            return {'type': 'who', 'needs_graph': True, 'complexity': 'medium'}
+        # WHO questions - needs Expert Finder
+        if any(word in query_lower for word in ['who', 'author', 'blame', 'responsible', 'wrote', 'merged', 'owns']):
+            return {'type': 'who', 'tool': 'Expert Finder', 'complexity': 'medium'}
         
-        # POLICY questions - need document search
-        if any(word in query_lower for word in ['policy', 'rule', 'allowed', 'violation', 'compliant']):
-            return {'type': 'policy', 'needs_graph': False, 'complexity': 'low'}
+        # STATUS questions - needs State Checkers
+        if any(phrase in query_lower for phrase in ['is pr', 'pr status', 'is ticket', 'ticket status', 'merged', 'resolved', 'closed']):
+            return {'type': 'status', 'tool': 'State Checker', 'complexity': 'low'}
         
-        # INCIDENT questions - need both
-        if any(word in query_lower for word in ['incident', 'outage', 'crash', 'error', 'broke', 'down']):
-            return {'type': 'incident', 'needs_graph': True, 'complexity': 'high'}
+        # RECENT/WHEN questions - needs Recent Activity
+        if any(word in query_lower for word in ['recent', 'latest', 'changed', 'last', 'yesterday', 'today', 'hours']):
+            return {'type': 'when', 'tool': 'Recent Activity', 'complexity': 'low'}
         
-        # WHAT/HOW questions - mostly documents
+        # POLICY questions - needs Document Search
+        if any(word in query_lower for word in ['policy', 'rule', 'allowed', 'violation', 'standard', 'procedure']):
+            return {'type': 'policy', 'tool': 'Document Search', 'complexity': 'low'}
+        
+        # INCIDENT questions - needs multiple tools
+        if any(word in query_lower for word in ['incident', 'outage', 'crash', 'error', 'broke', 'down', 'failed']):
+            return {'type': 'incident', 'tool': 'Multiple', 'complexity': 'high'}
+        
+        # WHAT/HOW questions - needs Document Search
         if any(word in query_lower for word in ['what', 'how', 'explain', 'describe']):
-            return {'type': 'what', 'needs_graph': False, 'complexity': 'low'}
+            return {'type': 'what', 'tool': 'Document Search', 'complexity': 'low'}
         
-        # Default
-        return {'type': 'general', 'needs_graph': True, 'complexity': 'medium'}
+        return {'type': 'general', 'tool': 'Multiple', 'complexity': 'medium'}
 
-    def process_job(self, job_id, user_query):
+    def process_job(self, job_id, user_query, session_id=None):
         """
-        IMPROVED: Orchestrates CrewAI workflow with better intelligence.
+        IMPROVED: Better tool routing and anti-hallucination
         """
         logger.info(f"⚙️ Processing Job {job_id}: '{user_query}'")
         start_time = time.time()
         self.processing_count += 1
         
-        # Check cache for exact matches
+        if not session_id:
+            session_id = job_id
+        
+        # Check cache
         cache_key = user_query.lower().strip()
         if cache_key in self.query_cache:
             cached_time = time.time() - self.query_cache[cache_key]['timestamp']
-            if cached_time < 300:  # 5 minute cache
+            if cached_time < 300:  # 5 min cache
                 logger.info(f"💾 Returning cached result ({cached_time:.0f}s old)")
                 return self.query_cache[cache_key]['answer']
         
         # Analyze query
         query_analysis = self.detect_query_type(user_query)
-        logger.info(f"🔍 Query type: {query_analysis['type']} | Complexity: {query_analysis['complexity']}")
+        logger.info(f"🔍 Query type: {query_analysis['type']} | Tool: {query_analysis['tool']}")
         
         try:
-            # 1. Instantiate Agents
             researcher = self.agents.researcher_agent()
             writer = self.agents.writer_agent()
             
-            # 2. Create optimized task descriptions based on query type
+            # Build research task based on query type
             if query_analysis['type'] == 'who':
                 research_desc = (
-                    f"Find WHO is related to this query: '{user_query}'\n"
-                    "CRITICAL: Use the 'Expert Pivot Finder' tool to identify specific people.\n"
-                    "Look for: PR Authors, Reviewers, Ticket Reporters, Commit Authors.\n"
-                    "Provide names, roles, and what they worked on."
+                    f"**WHO INVESTIGATION:** {user_query}\n\n"
+                    f"**REQUIRED TOOL:** 'Expert Finder - WHO questions'\n\n"
+                    f"**PROCESS:**\n"
+                    f"1. Use Expert Finder tool with the query\n"
+                    f"2. Report EXACTLY what the tool returns\n"
+                    f"3. If tool says 'not found', report that\n"
+                    f"4. Do NOT guess names or PRs\n\n"
+                    f"**ANTI-HALLUCINATION:**\n"
+                    f"- Every name must come from tool output\n"
+                    f"- Every PR/ticket must be cited\n"
+                    f"- If tool finds nothing, say 'No data found'"
                 )
+                
+            elif query_analysis['type'] == 'status':
+                # Extract PR or ticket number
+                import re
+                pr_match = re.search(r'pr\s*#?(\d+)', user_query, re.IGNORECASE)
+                ticket_match = re.search(r'(INC|SEC|FEAT|KORE)-\d+', user_query, re.IGNORECASE)
+                
+                if pr_match:
+                    research_desc = (
+                        f"**PR STATUS CHECK:** {user_query}\n\n"
+                        f"**REQUIRED TOOL:** 'PR State Checker'\n\n"
+                        f"Use check_pr_state('{pr_match.group(1)}') and report the exact output."
+                    )
+                elif ticket_match:
+                    research_desc = (
+                        f"**TICKET STATUS CHECK:** {user_query}\n\n"
+                        f"**REQUIRED TOOL:** 'Ticket State Checker'\n\n"
+                        f"Use check_ticket_state('{ticket_match.group(0)}') and report the exact output."
+                    )
+                else:
+                    research_desc = f"Check the status of: {user_query}\nUse appropriate State Checker tool."
+                    
+            elif query_analysis['type'] == 'when':
+                research_desc = (
+                    f"**RECENT ACTIVITY SEARCH:** {user_query}\n\n"
+                    f"**REQUIRED TOOL:** 'Recent Changes Tracker'\n\n"
+                    f"Use search_recent_activity(hours_back=24) and report what changed.\n"
+                    f"Only report items that the tool returns."
+                )
+                
             elif query_analysis['type'] == 'policy':
                 research_desc = (
-                    f"Research this policy question: '{user_query}'\n"
-                    "Use 'General Knowledge Search' with keywords like 'policy', 'rule', 'standard'.\n"
-                    "Find relevant policy documents and their requirements."
+                    f"**POLICY SEARCH:** {user_query}\n\n"
+                    f"**REQUIRED TOOL:** 'Document Search - WHAT/HOW questions'\n\n"
+                    f"Search for policy documents and report exact excerpts.\n"
+                    f"If no policy found, say so clearly."
                 )
+                
             elif query_analysis['type'] == 'incident':
                 research_desc = (
-                    f"Investigate this incident: '{user_query}'\n"
-                    "1. Use 'Recent Activity Finder' to see what changed recently\n"
-                    "2. Use 'Expert Pivot Finder' to identify who made those changes\n"
-                    "3. Use 'search_documents' to find related tickets/discussions\n"
-                    "Provide: Timeline, suspects, affected systems."
+                    f"**INCIDENT INVESTIGATION:** {user_query}\n\n"
+                    f"**MULTI-TOOL APPROACH:**\n"
+                    f"1. Recent Changes Tracker → What changed recently?\n"
+                    f"2. Expert Finder → Who made those changes?\n"
+                    f"3. Document Search → Related tickets/discussions\n\n"
+                    f"**EVIDENCE REQUIREMENTS:**\n"
+                    f"- Cite sources for every claim\n"
+                    f"- If uncertain, mark as [SUSPECTED]\n"
+                    f"- Build timeline from tool outputs"
                 )
             else:
                 research_desc = (
-                    f"Research this query: '{user_query}'\n"
-                    "Use appropriate tools based on the question:\n"
-                    "- 'Expert Pivot Finder' for people/blame questions\n"
-                    "- 'General Knowledge Search' for documentation\n"
-                    "- 'Recent Activity Finder' for recent changes"
+                    f"**GENERAL RESEARCH:** {user_query}\n\n"
+                    f"Select appropriate tools. Use Document Search for WHAT questions,\n"
+                    f"Expert Finder for WHO questions, Recent Activity for WHEN.\n\n"
+                    f"**CRITICAL:** Only report verified information from tools."
                 )
 
-            # 3. Define Tasks
             task_research = Task(
                 description=research_desc,
                 expected_output=(
-                    "A structured collection of facts with sources:\n"
-                    "- People involved (with roles)\n"
-                    "- Relevant PRs/Tickets (with IDs)\n"
-                    "- Key findings\n"
-                    "- Relevant policies (if applicable)"
+                    "VERIFIED findings from tools with:\n"
+                    "- Source citations [PR #123], [Ticket INC-456]\n"
+                    "- Clear marking of 'not found' vs 'found'\n"
+                    "- No invented information\n"
+                    "- Explicit unknowns"
                 ),
                 agent=researcher
             )
 
             task_write = Task(
                 description=(
-                    f"Answer this question: '{user_query}'\n\n"
-                    "Use ONLY the researcher's findings. Format as:\n"
-                    "1. **TL;DR** (1-2 sentences)\n"
-                    "2. **Key Findings** (bullet points with citations)\n"
-                    "3. **People Involved** (if applicable)\n"
-                    "4. **Next Steps** (if applicable)\n\n"
-                    "Use markdown formatting. Be concise but complete."
+                    f"**ANSWER THIS:** {user_query}\n\n"
+                    f"**FORMAT:**\n"
+                    f"1. **TL;DR** (1-2 sentences)\n"
+                    f"2. **Findings** (cite sources)\n"
+                    f"3. **Confidence**: HIGH/MEDIUM/LOW\n\n"
+                    f"**HONESTY RULES:**\n"
+                    f"- Use ONLY researcher's verified findings\n"
+                    f"- If researcher said 'not found', report that\n"
+                    f"- Don't fill gaps with guesses\n"
+                    f"- 'I don't have enough data' is acceptable\n\n"
+                    f"**Example HIGH confidence response:**\n"
+                    f"```\n"
+                    f"TL;DR: Bob Smith caused incident via PR #505.\n"
+                    f"\n"
+                    f"Evidence:\n"
+                    f"- PR #505 by Bob Smith [verified from graph]\n"
+                    f"- Merged Friday 2:30 PM [verified]\n"
+                    f"- Incident INC-2024 opened 15 min later [verified]\n"
+                    f"\n"
+                    f"Confidence: HIGH (all claims verified)\n"
+                    f"```\n\n"
+                    f"**Example LOW confidence response:**\n"
+                    f"```\n"
+                    f"TL;DR: Cannot determine who caused the issue.\n"
+                    f"\n"
+                    f"Attempted:\n"
+                    f"- Searched for 'payment timeout' [no results]\n"
+                    f"- Checked recent activity [no related PRs found]\n"
+                    f"\n"
+                    f"Confidence: LOW - insufficient data in knowledge base\n"
+                    f"Suggestion: Check if this data is indexed\n"
+                    f"```"
                 ),
-                expected_output="A clear, cited markdown response.",
+                expected_output="Clear, honest, well-cited response with confidence level",
                 agent=writer,
                 context=[task_research]
             )
 
-            # 4. Assemble Crew with timeout protection
             kore_crew = Crew(
                 agents=[researcher, writer],
                 tasks=[task_research, task_write],
                 process=Process.sequential,
                 verbose=True,
-                max_rpm=10  # Rate limit to prevent API abuse
+                max_rpm=10
             )
 
-            # 5. Kickoff with timeout
             try:
                 result = kore_crew.kickoff()
                 answer = str(result)
                 
-                # Cache successful result
+                # Cache result
                 self.query_cache[cache_key] = {
                     'answer': answer,
                     'timestamp': time.time()
@@ -181,44 +253,42 @@ class InteractiveBrain:
             except Exception as e:
                 logger.error(f"Crew execution failed: {e}")
                 return (
-                    f"⚠️ I encountered an error while processing your query:\n\n"
-                    f"**Error**: {str(e)}\n\n"
-                    f"This might be due to:\n"
+                    f"⚠️ **System Error**\n\n"
+                    f"Error: {str(e)}\n\n"
+                    f"This could be due to:\n"
                     f"- Database connectivity issues\n"
-                    f"- Missing data in the knowledge base\n"
-                    f"- The query being too complex\n\n"
-                    f"Try rephrasing your question or check if the system is fully operational."
+                    f"- Tool execution failures\n"
+                    f"- Query too complex\n\n"
+                    f"**Suggestion:** Try a simpler, more specific question."
                 )
         
         except Exception as e:
-            logger.error(f"Critical error in process_job: {e}")
-            return f"❌ System error: {str(e)}"
+            logger.error(f"Critical error: {e}")
+            return f"❌ **System Error:** {str(e)}"
 
     def run(self):
-        """Main Loop with health monitoring."""
+        """Main Loop"""
         logger.info("✅ Brain Active. Waiting for questions...")
-        logger.info(f"📊 Stats will be logged every 10 queries")
+        logger.info("🎯 Using improved tools with anti-hallucination")
         
         consecutive_errors = 0
         max_consecutive_errors = 5
         
         while True:
             try:
-                # Use timeout to allow periodic health checks
                 for message in self.consumer:
                     try:
                         data = message.value
                         job_id = data.get('job_id')
                         user_query = data.get('query')
+                        session_id = data.get('session_id', job_id)
 
                         if not user_query:
-                            logger.warning("Received job without query, skipping")
+                            logger.warning("Received job without query")
                             continue
 
-                        # Execute the Crew
-                        answer = self.process_job(job_id, user_query)
+                        answer = self.process_job(job_id, user_query, session_id)
                         
-                        # Send Response
                         response_payload = {
                             "job_id": job_id,
                             "query": user_query,
@@ -228,24 +298,24 @@ class InteractiveBrain:
                         }
                         self.producer.send('kore-responses', response_payload)
                         self.producer.flush()
-                        logger.info(f"✅ Job {job_id} Complete. Response sent.")
+                        logger.info(f"✅ Job {job_id} Complete")
                         
-                        # Reset error counter on success
                         consecutive_errors = 0
                         
-                        # Log stats periodically
                         if self.processing_count % 10 == 0:
-                            logger.info(f"📊 Processed {self.processing_count} queries. Cache size: {len(self.query_cache)}")
+                            logger.info(
+                                f"📊 Stats: {self.processing_count} queries | "
+                                f"{len(self.query_cache)} cached"
+                            )
 
                     except Exception as e:
                         consecutive_errors += 1
                         logger.error(f"❌ Job Failed ({consecutive_errors}/{max_consecutive_errors}): {e}")
                         
-                        # Try to send error response
                         try:
                             error_response = {
                                 "job_id": job_id,
-                                "answer": f"⚠️ I encountered an error: {str(e)}\n\nPlease try again or rephrase your question.",
+                                "answer": f"⚠️ Error: {str(e)}\n\nPlease try rephrasing.",
                                 "status": "error",
                                 "error": str(e),
                                 "timestamp": time.time()
@@ -255,9 +325,8 @@ class InteractiveBrain:
                         except:
                             logger.error("Could not send error response")
                         
-                        # If too many consecutive errors, something is wrong
                         if consecutive_errors >= max_consecutive_errors:
-                            logger.critical("Too many consecutive errors. Restarting connections...")
+                            logger.critical("Too many errors. Restarting...")
                             self._setup_kafka()
                             consecutive_errors = 0
             
@@ -266,11 +335,11 @@ class InteractiveBrain:
                 break
             except Exception as e:
                 logger.error(f"Consumer error: {e}")
-                time.sleep(5)  # Wait before retry
+                time.sleep(5)
                 try:
                     self._setup_kafka()
                 except:
-                    logger.error("Could not reconnect to Kafka")
+                    logger.error("Could not reconnect")
                     break
 
 if __name__ == "__main__":
