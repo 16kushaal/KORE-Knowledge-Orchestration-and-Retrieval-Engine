@@ -98,6 +98,14 @@ class KoreIngestor:
         
         # Reviewers extraction
         reviewers = [r['login'] for r in pr.get('requested_reviewers', [])]
+        requested_reviewers = pr.get('requested_reviewers', [])
+        for reviewer in requested_reviewers:
+            reviewer_name = reviewer.get('login')
+            if reviewer_name:
+                graph_query += f"""
+                MERGE (rev:User {{name: '{reviewer_name}'}})
+                MERGE (rev)-[:REVIEWED {{timestamp: $created_at, status: 'requested'}}]->(pr)
+                """
 
         # 2. Neo4j Update (Graph Source of Truth)
         query = f"""

@@ -55,3 +55,7 @@
               │   Streamlit UI    │
               │   (app.py)        │
               └───────────────────┘
+
+
+
+MAKE SURE ANY JIRA IS RELATED TO SOME REPO/PR AND OTHER WAY AROUND

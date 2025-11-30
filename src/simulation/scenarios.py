@@ -19,7 +19,7 @@ def run_simulation():
         sys.exit(1)
 
     print(f"🌊 Starting Simulation from {EVENTS_FILE}...")
-    print("⏱️  Interval: Sending 1 event every 7 seconds.")
+    print("⏱️  Interval: Sending 1 event every 3 seconds.")
     
     try:
         producer = KafkaProducer(
@@ -45,8 +45,8 @@ def run_simulation():
         payload = event.get('data')
         
         # --- MODIFICATION START ---
-        # Force a 7-second delay for every event
-        delay = 7
+        # Force a 3-second delay for every event
+        delay = 3
         # --- MODIFICATION END ---
 
         if not topic or not payload:
