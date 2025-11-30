@@ -9,7 +9,8 @@ load_dotenv()
 
 # --- CONFIG ---
 KAFKA_BROKER = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-EVENTS_FILE = os.getenv('SIMULATION_FILE', 'src\simulation\events.json')  # Default file path
+# Ensure this matches your actual path
+EVENTS_FILE = os.getenv('SIMULATION_FILE', 'src/simulation/events.json')  
 
 def run_simulation():
     if not os.path.exists(EVENTS_FILE):
@@ -17,7 +18,8 @@ def run_simulation():
         print("   Please create a JSON file with a list of event objects.")
         sys.exit(1)
 
-    print(f"🌊 Starting Deterministic Simulation from {EVENTS_FILE}...")
+    print(f"🌊 Starting Simulation from {EVENTS_FILE}...")
+    print("⏱️  Interval: Sending 1 event every 7 seconds.")
     
     try:
         producer = KafkaProducer(
@@ -28,7 +30,8 @@ def run_simulation():
         print(f"❌ Failed to connect to Kafka at {KAFKA_BROKER}: {e}")
         sys.exit(1)
 
-    with open(EVENTS_FILE, 'r') as f:
+    # FIX: Added encoding='utf-8' to handle emojis/special chars on Windows
+    with open(EVENTS_FILE, 'r', encoding='utf-8') as f:
         try:
             events = json.load(f)
         except json.JSONDecodeError as e:
@@ -40,16 +43,19 @@ def run_simulation():
     for i, event in enumerate(events):
         topic = event.get('topic')
         payload = event.get('data')
-        delay = event.get('delay', 8)  # Default 1s delay if unspecified
+        
+        # --- MODIFICATION START ---
+        # Force a 7-second delay for every event
+        delay = 7
+        # --- MODIFICATION END ---
 
         if not topic or not payload:
             print(f"⚠️  Skipping event #{i + 1}: Missing 'topic' or 'data'.")
             continue
 
         # Simulate timing
-        if delay > 0:
-            print(f"⏳ Waiting {delay}s...")
-            time.sleep(delay)
+        print(f"⏳ Waiting {delay}s...")
+        time.sleep(delay)
 
         # Send to Kafka
         try:
@@ -61,6 +67,8 @@ def run_simulation():
                 summary = f"Slack: {payload.get('username', 'Unknown')}: {payload.get('text', '')[:30]}..."
             elif topic == 'raw-git-commits':
                 summary = f"Git: {payload.get('pusher', {}).get('name', 'Unknown')} pushed commit"
+            elif topic == 'raw-git-prs':
+                 summary = f"PR: #{payload.get('pull_request', {}).get('number', '??')} {payload.get('action', '')}"
             elif topic == 'raw-jira-tickets':
                 summary = f"Jira: {payload.get('issue', {}).get('key', 'Unknown')}"
             

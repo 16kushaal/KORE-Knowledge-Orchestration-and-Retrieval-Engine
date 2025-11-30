@@ -39,7 +39,7 @@
       "username": "Datadog Bot",
       "channel": "C-INC",
       "channel_name": "incidents",
-      "text": "🚨 CRITICAL: PaymentGateway latency > 10s. Error Rate 100%. Affected endpoints: /checkout, /payment/process",
+      "text": "CRITICAL: PaymentGateway latency > 10s. Error Rate 100%. Affected endpoints: /checkout, /payment/process",
       "ts": "AUTO_UNIX_TIME"
     }
   },
@@ -69,18 +69,17 @@
   },
   {
     "topic": "raw-jira-tickets",
-    "delay": 10,
+    "delay": 20,
     "data": {
-      "webhookEvent": "jira:issue_created",
-      "user": { "name": "Eve Polastri" },
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "John Doe" },
       "issue": {
         "key": "INC-2024",
         "fields": {
           "summary": "Production Down: Payment Gateway Outage",
-          "description": "Full outage on checkout. Suspected bad deploy. Customers reporting 500 errors.",
-          "status": { "name": "Open" },
+          "description": "Rollback in progress. Root cause identified: bad commit abc1234 (PR-505) bypassing retry logic.",
+          "status": { "name": "Investigating" },
           "priority": { "name": "P0-Critical" },
-          "created": "AUTO_ISO_TIME",
           "updated": "AUTO_ISO_TIME"
         }
       }
@@ -181,7 +180,7 @@
       "username": "Datadog Bot",
       "channel": "C-INC",
       "channel_name": "incidents",
-      "text": "✅ Recovery underway: latency returning to normal. Error rate dropping to 5%.",
+      "text": "Recovery underway: latency returning to normal. Error rate dropping to 5%.",
       "ts": "AUTO_UNIX_TIME"
     }
   },
@@ -461,7 +460,7 @@
       "username": "CI Bot",
       "channel": "C-DEV",
       "channel_name": "dev-team",
-      "text": "✅ PR #301 (kore-frontend) - All checks passed: Tests (12/12), Lint (0 issues), Bundle size OK",
+      "text": "PR #301 (kore-frontend) - All checks passed: Tests (12/12), Lint (0 issues), Bundle size OK",
       "ts": "AUTO_UNIX_TIME"
     }
   },
@@ -499,6 +498,207 @@
           "priority": { "name": "P2-Medium" },
           "resolution": { "name": "Done" },
           "resolutiondate": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 160,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 508,
+        "title": "Upgrade JWT signing algorithm to ES256",
+        "body": "Switching from HS256 to ES256 for better security. Updated public keys in config.",
+        "user": { "login": "Diana Prince" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Bob Smith" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 165,
+    "data": {
+      "user": "U-Diana",
+      "username": "Diana Prince",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Merging PR #508 to upgrade Auth service encryption. This is a critical security update.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 170,
+    "data": {
+      "action": "closed",
+      "pull_request": {
+        "number": 508,
+        "title": "Upgrade JWT signing algorithm to ES256",
+        "user": { "login": "Diana Prince" },
+        "state": "closed",
+        "merged": true,
+        "merged_by": { "login": "Bob Smith" },
+        "closed_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 180,
+    "data": {
+      "user": "BOT",
+      "username": "Datadog Bot",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "CRITICAL: APIGateway 502 Error Rate > 15%. Auth Latency > 2s. Services failing to validate tokens.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 182,
+    "data": {
+      "user": "U-Eve",
+      "username": "Eve Polastri",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "Users are getting logged out immediately after login. Is Auth down?",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 185,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Eve Polastri" },
+      "issue": {
+        "key": "INC-2025",
+        "fields": {
+          "summary": "Major Outage: Global Authentication Failure",
+          "description": "All services returning 401/502. Suspected issue with recent Auth deployment. Users cannot log in.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P0-Critical" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 190,
+    "data": {
+      "user": "U-Bob",
+      "username": "Bob Smith",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "I think the APIGateway doesn't have the new ES256 public keys yet. It's failing to verify the new tokens Diana pushed.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-git-commits",
+    "delay": 195,
+    "data": {
+      "commit": {
+        "id": "rev-999-auth-rollback",
+        "message": "Revert \"Upgrade JWT signing algorithm to ES256\" - caused INC-2025",
+        "author": { "name": "Diana Prince", "email": "diana@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "modified": ["src/auth/config.go"],
+        "reverts": "commit-hash-of-pr-508"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 200,
+    "data": {
+      "user": "U-Diana",
+      "username": "Diana Prince",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "Reverted PR #508. Rolling back `kore-auth` to previous version. Give it 2 mins.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 210,
+    "data": {
+      "webhookEvent": "jira:issue_updated",
+      "user": { "name": "Diana Prince" },
+      "issue": {
+        "key": "INC-2025",
+        "fields": {
+          "summary": "Major Outage: Global Authentication Failure - RESOLVED",
+          "description": "Service restored. Root cause: APIGateway key mismatch with new AuthService algorithm (PR #508). Rolled back.",
+          "status": { "name": "Resolved" },
+          "priority": { "name": "P0-Critical" },
+          "resolution": { "name": "Fixed" },
+          "resolutiondate": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+  {
+    "topic": "raw-git-prs",
+    "delay": 230,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 305,
+        "title": "Optimization: Lazy load heavy dashboard widgets",
+        "body": "Dashboard is taking 5s to load. Implementing lazy loading for analytics charts. Risk: Low.",
+        "user": { "login": "Eve Polastri" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Alice Chen" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-frontend" }
+    }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 240,
+    "data": {
+      "user": "BOT",
+      "username": "New Relic Bot",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "⚠️ WARNING: Frontend LCP (Largest Contentful Paint) degraded by 40% on /dashboard route.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 245,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Alice Chen" },
+      "issue": {
+        "key": "PERF-102",
+        "fields": {
+          "summary": "Dashboard Performance Regression",
+          "description": "Loading times spiked after recent frontend push. Suspect lazy loading implementation in PR #305 introduced a render blocking bug.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P2-High" },
+          "created": "AUTO_ISO_TIME",
           "updated": "AUTO_ISO_TIME"
         }
       }

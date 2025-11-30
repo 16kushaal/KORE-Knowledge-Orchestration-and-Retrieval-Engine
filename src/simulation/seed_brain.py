@@ -15,9 +15,8 @@ NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
 NEO4J_AUTH = (os.getenv('NEO4J_USER', 'neo4j'), os.getenv('NEO4J_PASSWORD', 'password'))
 
 # --- 1. THE ORGANIZATIONAL GRAPH (Neo4j) ---
-# IMPROVED: Added more relationships and properties
 ORG_CHART_QUERY = """
-// 1. Create Services with more metadata
+// 1. Create Services with metadata
 MERGE (s1:Service {name: 'PaymentGateway'})
 SET s1.language = 'Python', s1.criticality = 'High', s1.on_call = 'Alice Chen'
 
@@ -43,23 +42,19 @@ SET t2.slack_channel = '#security-alerts'
 MERGE (t3:Team {name: 'Product_Eng'})
 SET t3.slack_channel = '#product-team'
 
-// 3. Create People & Roles with more details
+// 3. Create People
 MERGE (u1:User {name: 'Alice Chen'})
-SET u1.role = 'Staff Engineer', u1.email = 'alice@kore.com', u1.slack = '@alice'
-
+SET u1.role = 'Staff Engineer', u1.email = 'alice@kore.com'
 MERGE (u2:User {name: 'Bob Smith'})
-SET u2.role = 'Junior Dev', u2.email = 'bob@kore.com', u2.slack = '@bob'
-
+SET u2.role = 'Junior Dev', u2.email = 'bob@kore.com'
 MERGE (u3:User {name: 'Diana Prince'})
-SET u3.role = 'Security Lead', u3.email = 'diana@kore.com', u3.slack = '@diana'
-
+SET u3.role = 'Security Lead', u3.email = 'diana@kore.com'
 MERGE (u4:User {name: 'Eve Polastri'})
-SET u4.role = 'Product Manager', u4.email = 'eve@kore.com', u4.slack = '@eve'
-
+SET u4.role = 'Product Manager', u4.email = 'eve@kore.com'
 MERGE (u5:User {name: 'John Doe'})
-SET u5.role = 'SRE Lead', u5.email = 'john@kore.com', u5.slack = '@john'
+SET u5.role = 'SRE Lead', u5.email = 'john@kore.com'
 
-// 4. Relationships (The Command Chain)
+// 4. Relationships (Command Chain)
 MERGE (u1)-[:LEADS]->(t1)
 MERGE (u2)-[:MEMBER_OF]->(t1)
 MERGE (u3)-[:LEADS]->(t2)
@@ -73,11 +68,20 @@ MERGE (t2)-[:OWNS]->(s2)
 MERGE (t2)-[:OWNS]->(s4)
 MERGE (t3)-[:OWNS]->(s3)
 
-// 6. NEW: Service Dependencies
+// 6. Service Dependencies
 MERGE (s3)-[:DEPENDS_ON {type: 'API'}]->(s5)
 MERGE (s5)-[:DEPENDS_ON {type: 'Auth'}]->(s2)
 MERGE (s1)-[:DEPENDS_ON {type: 'Data'}]->(s4)
 MERGE (s5)-[:DEPENDS_ON {type: 'Payment'}]->(s1)
+
+// 7. REPOSITORY LINKS (Critical for correlating Code to Service)
+MERGE (r1:Repository {name: 'kore-payments'})
+MERGE (r2:Repository {name: 'kore-auth'})
+MERGE (r3:Repository {name: 'kore-frontend'})
+
+MERGE (s1)-[:BACKED_BY]->(r1)
+MERGE (s2)-[:BACKED_BY]->(r2)
+MERGE (s3)-[:BACKED_BY]->(r3)
 """
 
 # --- 2. THE COMPANY POLICIES (Vector Store) ---
@@ -303,63 +307,30 @@ def seed_vectors():
     
     for attempt in range(max_retries):
         try:
-            logger.info("📚 Ingesting Company Policies into ChromaDB...")
+            logger.info("📚 Ingesting Policies into 'company_policies' collection...")
             
-            # Init Embedding Model
             embed_model = CohereEmbeddings(
-                model="embed-english-v3.0",
+                model="embed-english-v3.0", 
                 cohere_api_key=os.getenv("COHERE_API_KEY")
             )
+            client = chromadb.HttpClient(host=os.getenv('CHROMA_HOST', 'localhost'), port=8000)
             
-            # Init Chroma
-            client = chromadb.HttpClient(
-                host=os.getenv('CHROMA_HOST', 'localhost'), 
-                port=8000
-            )
+            # STRATEGY CHANGE: Specific Collection
+            collection = client.get_or_create_collection(name="company_policies")
             
-            # Get or create collection
-            try:
-                collection = client.get_collection(name="kore_knowledge")
-                logger.info("Found existing collection 'kore_knowledge'")
-            except:
-                collection = client.create_collection(name="kore_knowledge")
-                logger.info("Created new collection 'kore_knowledge'")
-
-            # Prepare documents
             ids = [p["id"] for p in POLICIES]
             docs = [f"{p['title']}\n\n{p['content']}" for p in POLICIES]
-            metadatas = [
-                {
-                    "source": "policy-doc", 
-                    "policy_id": p["id"],
-                    "title": p["title"]
-                } 
-                for p in POLICIES
-            ]
-
-            # Generate Embeddings & Upsert
-            logger.info("Generating embeddings for policies...")
+            metadatas = [{"source": "policy", "id": p["id"], "title": p["title"]} for p in POLICIES]
+            
             embeddings = embed_model.embed_documents(docs)
+            collection.upsert(ids=ids, embeddings=embeddings, documents=docs, metadatas=metadatas)
             
-            collection.upsert(
-                ids=ids, 
-                embeddings=embeddings, 
-                documents=docs, 
-                metadatas=metadatas
-            )
-            
-            logger.info(f"✅ Indexed {len(POLICIES)} Policy Documents:")
-            for p in POLICIES:
-                logger.info(f"   - {p['id']}: {p['title']}")
-            
+            logger.info(f"✅ Indexed {len(POLICIES)} policies.")
             return True
-            
         except Exception as e:
-            if attempt == max_retries - 1:
-                logger.error(f"❌ ChromaDB Error after {max_retries} attempts: {e}")
-                return False
-            logger.warning(f"ChromaDB connection attempt {attempt + 1} failed, retrying...")
-            time.sleep(2)
+            logger.error(f"❌ ChromaDB Error: {e}")
+            return False
+        time.sleep(2)
 
 def verify_seeding():
     """Verify that data was seeded correctly."""
@@ -367,34 +338,33 @@ def verify_seeding():
     
     success = True
     
-    # Check Neo4j
+    # Check Neo4j (Keep this part, it passed)
     try:
         driver = GraphDatabase.driver(NEO4J_URI, auth=NEO4J_AUTH)
         with driver.session() as session:
-            # Count nodes
             result = session.run("MATCH (n) RETURN count(n) as count")
             count = result.single()["count"]
             logger.info(f"✅ Neo4j: {count} nodes created")
-            
-            # Count relationships
-            result = session.run("MATCH ()-[r]->() RETURN count(r) as count")
-            rel_count = result.single()["count"]
-            logger.info(f"✅ Neo4j: {rel_count} relationships created")
-        
         driver.close()
     except Exception as e:
         logger.error(f"❌ Neo4j verification failed: {e}")
         success = False
     
-    # Check ChromaDB
+    # Check ChromaDB -- [FIXED SECTION]
     try:
         client = chromadb.HttpClient(
             host=os.getenv('CHROMA_HOST', 'localhost'), 
             port=8000
         )
-        collection = client.get_collection(name="kore_knowledge")
+        # CHANGE: Look for 'company_policies' instead of 'kore_knowledge'
+        collection = client.get_collection(name="company_policies")
         count = collection.count()
-        logger.info(f"✅ ChromaDB: {count} documents in collection")
+        logger.info(f"✅ ChromaDB: {count} documents in 'company_policies'")
+        
+        if count == 0:
+            logger.warning("⚠️ Collection exists but is empty!")
+            success = False
+            
     except Exception as e:
         logger.error(f"❌ ChromaDB verification failed: {e}")
         success = False
