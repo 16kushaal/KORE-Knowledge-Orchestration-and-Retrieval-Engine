@@ -110,7 +110,7 @@ if 'listener_thread' not in st.session_state:
 # --- HEADER ---
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("🧠 KORE: Knowledge Operations & Response Engine")
+    st.title("🧠 KORE: Knowledge Orchestration & Response Engine")
     st.caption("Enterprise AI Brain for Incident Response & Security")
 
 with col2:
@@ -196,7 +196,6 @@ tab1, tab2 = st.tabs(["💬 Query Interface", "📚 Query History"])
 
 with tab1:
     st.markdown("### Ask the Knowledge Engine")
-    st.markdown("_Examples: 'Who broke the payment gateway?', 'What is our Friday deployment policy?', 'Show recent activity'_")
     
     # Display chat history
     for message in st.session_state.messages:

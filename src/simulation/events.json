@@ -703,5 +703,300 @@
         }
       }
     }
+  },
+  {
+    "topic": "raw-slack-chats",
+    "delay": 300,
+    "data": {
+      "user": "U-SRE-John",
+      "username": "John Doe",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Investigating PERF-102. The lazy load script is blocking the main thread for ~400ms. Trying a patch.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-git-commits",
+    "delay": 305,
+    "data": {
+      "commit": {
+        "id": "perf-hotfix-001",
+        "message": "Attempt fix for dashboard LCP regression",
+        "author": { "name": "John Doe", "email": "john@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "modified": ["frontend/src/dashboard/lazy-loader.js"]
+      },
+      "repository": { "name": "kore-frontend" },
+      "ref": "refs/heads/main"
+    }
+  },
+
+  {
+    "topic": "raw-git-prs",
+    "delay": 310,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 309,
+        "title": "Fix: Non-blocking lazy loader for dashboard widgets",
+        "body": "Refactors lazy loader to defer hydration. Mitigates PERF-102. Requires staging validation.",
+        "user": { "login": "John Doe" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Alice Chen" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-frontend" }
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 315,
+    "data": {
+      "user": "U-Alice",
+      "username": "Alice Chen",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Reviewed PR #309. Patch looks correct. Need to test on staging with real analytics load.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 320,
+    "data": {
+      "user": "U-SRE-John",
+      "username": "John Doe",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "Staging shows intermittent blank-screen flashes after loading. Might be related to the hydration changes in PR #309.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 322,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "John Doe" },
+      "issue": {
+        "key": "PERF-103",
+        "fields": {
+          "summary": "Dashboard flashing during hydration",
+          "description": "Staging displays brief blank-screen flashes after lazy load refactor (PR #309). Needs investigation before merge.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P1-High" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 330,
+    "data": {
+      "user": "BOT",
+      "username": "Datadog Bot",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "⚠️ WARNING: AuthService p95 latency spiked from 180ms to 450ms.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 333,
+    "data": {
+      "user": "U-Diana",
+      "username": "Diana Prince",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Not another auth issue. Checking the token validator path. Might be config-related.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-git-commits",
+    "delay": 335,
+    "data": {
+      "commit": {
+        "id": "auth-opt-220",
+        "message": "Optimize token validator, reduce ECDSA key parsing overhead",
+        "author": { "name": "Diana Prince", "email": "diana@kore.com" },
+        "timestamp": "AUTO_ISO_TIME",
+        "modified": ["src/auth/validator.go"]
+      },
+      "repository": { "name": "kore-auth" },
+      "ref": "refs/heads/main"
+    }
+  },
+
+  {
+    "topic": "raw-git-prs",
+    "delay": 340,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 509,
+        "title": "Performance: Reduce ECDSA validation overhead",
+        "body": "Reduces repeated parsing of public keys. Should lower p95 latency.",
+        "user": { "login": "Diana Prince" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Bob Smith" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-auth" }
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 345,
+    "data": {
+      "user": "U-SRE-John",
+      "username": "John Doe",
+      "channel": "C-INC",
+      "channel_name": "incidents",
+      "text": "APIGateway not caching public keys correctly. Cache TTL is still 5 seconds, should be 300.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 348,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "John Doe" },
+      "issue": {
+        "key": "INC-2026",
+        "fields": {
+          "summary": "Intermittent Authentication Latency Spikes",
+          "description": "APIGateway not respecting public-key cache TTL. Causing repeated ECDSA key fetches.",
+          "status": { "name": "Investigating" },
+          "priority": { "name": "P1-High" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 355,
+    "data": {
+      "user": "U-Alice",
+      "username": "Alice Chen",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "Retry backoff logic still too aggressive after the revert. We need exponential backoff reinstated.",
+      "ts": "AUTO_UNIX_TIME"
+    }
+  },
+
+  {
+    "topic": "raw-git-prs",
+    "delay": 360,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 510,
+        "title": "Restore exponential retry backoff for PaymentGateway",
+        "body": "Adds exponential backoff, jitter, and circuit-breaker thresholds.",
+        "user": { "login": "Alice Chen" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "Diana Prince" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 365,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Alice Chen" },
+      "issue": {
+        "key": "REL-2001",
+        "fields": {
+          "summary": "PaymentGateway unstable under moderate load",
+          "description": "Post-incident review found missing exponential backoff logic and lack of circuit breaking.",
+          "status": { "name": "In Progress" },
+          "priority": { "name": "P1-High" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+
+  {
+    "topic": "raw-git-prs",
+    "delay": 370,
+    "data": {
+      "action": "opened",
+      "pull_request": {
+        "number": 511,
+        "title": "Introduce automated secret scanning in CI",
+        "body": "Adds trufflehog + custom SEC-102 rule to block commits with secrets.",
+        "user": { "login": "Diana Prince" },
+        "state": "open",
+        "merged": false,
+        "requested_reviewers": [{ "login": "John Doe" }],
+        "created_at": "AUTO_ISO_TIME",
+        "updated_at": "AUTO_ISO_TIME"
+      },
+      "repository": { "name": "kore-payments" }
+    }
+  },
+
+  {
+    "topic": "raw-jira-tickets",
+    "delay": 375,
+    "data": {
+      "webhookEvent": "jira:issue_created",
+      "user": { "name": "Diana Prince" },
+      "issue": {
+        "key": "SEC-3002",
+        "fields": {
+          "summary": "Add automated secret scanning to all critical repos",
+          "description": "Follow-up work to SEC-3001. Missing enforcement in CI allowed hardcoded AWS key earlier.",
+          "status": { "name": "Open" },
+          "priority": { "name": "P2-Medium" },
+          "created": "AUTO_ISO_TIME",
+          "updated": "AUTO_ISO_TIME"
+        }
+      }
+    }
+  },
+
+  {
+    "topic": "raw-slack-chats",
+    "delay": 380,
+    "data": {
+      "user": "BOT",
+      "username": "New Relic Bot",
+      "channel": "C-DEV",
+      "channel_name": "dev-team",
+      "text": "⚠️ WARNING: Dashboard TTI increased by +22% after test build of PR #309.",
+      "ts": "AUTO_UNIX_TIME"
+    }
   }
 ]
