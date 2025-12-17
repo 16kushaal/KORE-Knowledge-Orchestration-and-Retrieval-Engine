@@ -18,9 +18,14 @@ litellm
 langchain-chroma
 langchain-neo4j
 # Simulation & Utilities
-faker
 python-dotenv
 watchdog
 
 # UI
 streamlit
+
+# XAI dependencies
+shap
+transformers
+torch
+numpy

@@ -8,6 +8,15 @@ from dotenv import load_dotenv
 import threading
 from collections import deque
 from datetime import datetime
+import traceback
+
+# Import KORE collections used for retrieval (Chroma-backed).
+# Use a graceful fallback in case the backend or environment isn't available
+# so the UI can continue running without crashing.
+try:
+    from src.brain.tools import collections
+except Exception as e:
+    collections = {}
 
 load_dotenv()
 KAFKA_BROKER = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
@@ -106,6 +115,41 @@ if 'listener_thread' not in st.session_state:
     t = threading.Thread(target=alert_listener, daemon=True)
     t.start()
     st.session_state.listener_thread = t
+
+
+# -----------------------------
+# Retrieval helper (local)
+# -----------------------------
+# This helper uses the existing `collections` object (Chroma-backed)
+# defined in `src.brain.tools`. We do not change retrieval logic; we
+# only *consume* its output to fetch the top chunk for a given query.
+def find_top_chunk_ui(query: str, category: str = "all"):
+    targets = []
+    if category in collections:
+        targets = [category]
+    else:
+        q_lower = query.lower()
+        if "policy" in q_lower or "rule" in q_lower or "compliance" in q_lower:
+            targets.append('policy')
+        elif "pr" in q_lower or "commit" in q_lower or "code" in q_lower:
+            targets.append('git')
+        elif "incident" in q_lower or "ticket" in q_lower or "error" in q_lower:
+            targets.extend(['jira', 'slack'])
+        else:
+            targets = ['policy', 'jira', 'git', 'slack']
+
+    for target in targets:
+        try:
+            docs = collections[target].similarity_search(query, k=1)
+            if docs:
+                return target, docs[0]
+        except Exception as e:
+            # don't fail the UI if a collection is down — show full traceback for debugging
+            st.warning(f"Search failed for {target}: {e}")
+            # Display the exception and traceback in the UI to aid debugging
+            st.exception(e)
+            continue
+    return None, None
 
 # --- HEADER ---
 col1, col2 = st.columns([3, 1])
@@ -215,7 +259,50 @@ with tab1:
         
         with st.chat_message("user"):
             st.markdown(prompt)
-        
+
+            # --- Compute retrieval + relevance immediately for this query ---
+            # This runs at submission time so the UI shows a relevance metric instantly.
+            # We cache the result in session_state['last_relevance'] to avoid recomputing
+            # when the agent's answer arrives later.
+            try:
+                target, doc = find_top_chunk_ui(prompt)
+                if doc is not None:
+                    try:
+                        # Lazy import so heavy model libs aren't required at module import
+                        from src.xai.model_wrapper import ModelWrapper
+
+                        model = ModelWrapper()
+                        passage = doc.page_content
+                        score = model.predict(prompt, passage)
+
+                        meta = getattr(doc, 'metadata', {}) or {}
+                        if target == 'policy':
+                            retrieved_id = f"policy_{meta.get('id', '?')}"
+                        elif target == 'jira':
+                            retrieved_id = f"ticket_{meta.get('key', '?')}"
+                        elif target == 'git':
+                            retrieved_id = f"repo_{meta.get('repo', '?')}"
+                        elif target == 'slack':
+                            retrieved_id = f"channel_{meta.get('channel', '?')}"
+                        else:
+                            retrieved_id = meta.get('id') or meta.get('key') or 'unknown'
+
+                        # Cache and show an immediate metric
+                        st.session_state['last_relevance'] = {
+                            'score': score,
+                            'retrieved_id': retrieved_id,
+                            'target': target
+                        }
+                        st.markdown(f"**Retrieved chunk:** {retrieved_id} (source: {target})")
+                        st.metric("Relevance", f"{score:.2f}")
+
+                    except Exception as e:
+                        st.warning(f"Could not compute relevance score: {e}")
+                else:
+                    st.info("No relevant document found for immediate relevance scoring.")
+            except Exception as e:
+                st.warning(f"Retrieval helper error: {e}")
+
         # Generate job ID
         job_id = str(uuid.uuid4())
         
@@ -245,19 +332,48 @@ with tab1:
                             if message.value.get('job_id') == job_id:
                                 resp = message.value.get('answer', 'No response')
                                 status = message.value.get('status', 'unknown')
-                                
+
                                 # Update history
                                 st.session_state.query_history[-1]['status'] = status
                                 st.session_state.query_history[-1]['answer'] = resp
-                                
+
                                 # Display response
                                 st.markdown(resp)
                                 st.session_state.messages.append({"role": "assistant", "content": resp})
-                                
-                                found = True
-                                break
-                        
-                        if not found:
+
+                                # Use cached relevance computed at submission time if available
+                                rel = st.session_state.get('last_relevance')
+                                if rel:
+                                    st.markdown(f"**Retrieved chunk:** {rel.get('retrieved_id')} (source: {rel.get('target')})")
+                                    st.metric("Relevance", f"{rel.get('score'):.2f}")
+                                else:
+                                    # Fallback: compute now (keeps previous behavior but is slower)
+                                    try:
+                                        target, doc = find_top_chunk_ui(prompt)
+                                        if doc is not None:
+                                            from src.xai.model_wrapper import ModelWrapper
+
+                                            model = ModelWrapper()
+                                            passage = doc.page_content
+                                            score = model.predict(prompt, passage)
+
+                                            meta = getattr(doc, 'metadata', {}) or {}
+                                            if target == 'policy':
+                                                retrieved_id = f"policy_{meta.get('id', '?')}"
+                                            elif target == 'jira':
+                                                retrieved_id = f"ticket_{meta.get('key', '?')}"
+                                            elif target == 'git':
+                                                retrieved_id = f"repo_{meta.get('repo', '?')}"
+                                            elif target == 'slack':
+                                                retrieved_id = f"channel_{meta.get('channel', '?')}"
+                                            else:
+                                                retrieved_id = meta.get('id') or meta.get('key') or 'unknown'
+
+                                            st.markdown(f"**Retrieved chunk:** {retrieved_id} (source: {target})")
+                                            st.metric("Relevance", f"{score:.2f}")
+                                    except Exception as e:
+                                        st.warning(f"Could not compute relevance score: {e}")
+
                             error_msg = "⚠️ **Request timed out.** The agents might be overloaded or the query is too complex. Try:\n- Simplifying your question\n- Breaking it into smaller queries\n- Checking if the knowledge base has this data"
                             st.error(error_msg)
                             st.session_state.messages.append({"role": "assistant", "content": error_msg})
